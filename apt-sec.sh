@@ -36,6 +36,13 @@ function fn_requiriments()
 		echo "Install lsb_release (apt-get install lsb-release)"
 		exit
 	fi
+	
+	which column &> /dev/null
+	if [ "$?" -ne 0 ];then
+		echo "apt-get install bsdmainutils"
+		exit
+	fi
+	
 }
 function fn_isRoot()
 {
@@ -47,7 +54,15 @@ function fn_isRoot()
 	fi
 }
 
-
+function fn_line()
+{
+	CHAR="$1"
+	if [ -n "$CHAR" ];then
+		printf "%$(tput cols)s\n" | tr ' ' $CHAR
+	else
+		printf "%$(tput cols)s\n" | tr ' ' -
+	fi
+}
 function fn_usage()
 {
 	echo "Usage: $0 <option>"
@@ -126,10 +141,20 @@ function fn_locate_package_in_cve()
 	PKG="$1"
 	#cat "$CVE_DB_FILE" | grep "| $PKG " | head -n1 |sed 's/ //g'| awk -F "|" '{print $1" "$2" "$3" "$4" "$7}'
 	RESULTADO=$(cat "$CVE_DB_FILE" | grep "| $PKG " | head -n1 | awk -F "|" '{print $1"|"$2"|"$3"|"$4"|"$7}')
-	CVE=$(echo "$RESULTADO" | awk -F "|" '{print $1}')
+	CVE=$(echo "$RESULTADO" | awk -F "|" '{print $1}'| sed 's/ //g')
+	SEVERITY=$(echo "$RESULTADO" | awk -F "|" '{print $4}'| sed 's/ //g')
+	PKG=$(echo "$RESULTADO" | awk -F "|" '{print $2}'| sed 's/ //g')
+	VERSION=$(echo "$RESULTADO" | awk -F "|" '{print $3}'| sed 's/ //g')
+	DESCRIPTION=$(echo "$RESULTADO" | awk -F "|" '{print $5}')
+	
 	if [ -n "$RESULTADO" ];then
-		echo "$RESULTADO"
-		echo $CVE
+		#echo "$RESULTADO"
+		
+		fn_line "_"
+		printf "%10s | %-10s | %-25s | %-10s %s\n" "$CVE" "$SEVERITY" "$PKG" "$VERSION"
+		fn_line
+		printf "DESCRIPTION:%s \n" "$DESCRIPTION"
+		fn_line
 		return 0
 	else
 		return 1	
@@ -255,6 +280,8 @@ function fn_main()
 		
 		apt-get update
 		# Verificando se todos os pacotes atualizaveis possuem um CVE associado
+		echo
+		echo "::LIST PACKAGES WITH CVE::"
 		LISTA=$(fn_get_package_upgradeble)
 		for ITEM in $LISTA; do
 			#echo "ITEM: $ITEM"
@@ -275,8 +302,13 @@ function fn_main()
 				fi
 			fi
 		done
-		echo "apt-get install $PKG_TO_UPDATE"
-		fn_generate_apt_log "$(date +%s)" "$PKG_COLLECTION"
+		
+		if [ -n "$PKG_TO_UPDATE" ];then
+			echo "apt-get install $PKG_TO_UPDATE"
+			fn_generate_apt_log "$(date +%s)" "$PKG_COLLECTION"
+		else
+			echo "No packages with CVE"	
+		fi
 		;;
 	-a|--all)
 		 apt-get update
