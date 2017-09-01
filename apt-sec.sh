@@ -99,8 +99,8 @@ function fn_get_packages_dsa()
 function fn_get_package_upgradeble(){
 	
 
-	#LIST=$(sudo apt-get upgrade --assume-no -V | grep "^ ")
-	LIST=$(sudo apt-get upgrade --assume-no -V | grep "^ " | awk '{print $1"|"$2"|"$4}'| sed 's/[)(]//g')
+	#LIST=$( apt-get upgrade --assume-no -V | grep "^ ")
+	LIST=$( apt-get upgrade --assume-no -V | grep "^ " | awk '{print $1"|"$2"|"$4}'| sed 's/[)(]//g')
 	#PACKAGES=$(echo "$LIST" | awk '{print $1}')
 	
 	echo "$LIST"
@@ -138,7 +138,7 @@ function fn_download_package_version()
 		cp "${PKG}_${VERSION}_*.deb" "$ROLLBACK_PKG_DIR/"
 		echo "[info] Pacote: ${PKG}_$VERSION (existente no archives) foi arquivado para rollback em: $ROLLBACK_PKG_DIR" 
 	else
-		sudo apt-get download "$PKG"="$VERSION" 2> /dev/null
+		 apt-get download "$PKG"="$VERSION" 2> /dev/null
 		RESULT="$?"
 		#echo "DOWNLOAD RESULT: $RESULT"   #DEBUG
 		if [ "$RESULT" -eq 0 ];then
@@ -255,7 +255,7 @@ function fn_main()
 			fn_get_cve_db	
 		fi
 		
-		sudo apt-get update
+		 apt-get update
 		# Verificando se todos os pacotes atualizaveis possuem um CVE associado
 		LISTA=$(fn_get_package_upgradeble)
 		for ITEM in $LISTA; do
@@ -281,7 +281,7 @@ function fn_main()
 		fn_generate_apt_log "$(date +%s)" "$PKG_COLLECTION"
 		;;
 	-a|--all)
-		sudo apt-get update
+		 apt-get update
 		# Atualizando todos os pacotes que obtiveram sucesso no download		
 		PKG_TO_UPDATE=""
 		LISTA=$(fn_get_package_upgradeble)
@@ -303,7 +303,7 @@ function fn_main()
 		echo "apt-get install $PKG_TO_UPDATE"
 		;;	
 	-l|--list)
-		sudo apt-get update
+		 apt-get update
 		echo "[List all packages upgradeble]"
 		fn_get_package_upgradeble	
 		;;
