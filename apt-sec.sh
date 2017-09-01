@@ -26,12 +26,12 @@ export APT_SEC_LOG="/var/log/apt-sec.log"
 
 function fn_requiriments()
 {
-	which psql
+	which psql &> /dev/null
 	if [ "$?" -ne 0 ];then
 		echo "Install postgres client (apt-get install postgresql-client)"
 		exit
 	fi
-	which lsb_release
+	which lsb_release &> /dev/null
 	if [ "$?" -ne 0 ];then
 		echo "Install lsb_release (apt-get install lsb-release)"
 		exit
@@ -126,8 +126,10 @@ function fn_locate_package_in_cve()
 	PKG="$1"
 	#cat "$CVE_DB_FILE" | grep "| $PKG " | head -n1 |sed 's/ //g'| awk -F "|" '{print $1" "$2" "$3" "$4" "$7}'
 	RESULTADO=$(cat "$CVE_DB_FILE" | grep "| $PKG " | head -n1 | awk -F "|" '{print $1"|"$2"|"$3"|"$4"|"$7}')
+	CVE=$(echo "$RESULTADO" | awk -F "|" '{print $1}')
 	if [ -n "$RESULTADO" ];then
 		echo "$RESULTADO"
+		echo $CVE
 		return 0
 	else
 		return 1	
@@ -165,25 +167,7 @@ function fn_download_package_version()
 	fi
 }
 
-function fn_verify_package()
-{
-	PACKAGE="$1"
-	VERSION="$2"
-	if [ -z "$PACKAGE"  -o  -z "$VERSION" ];then
-		echo "CVE sem informações suficientes!"
-		exit 1
-	else
-		#echo "ELES NAO SAO NULOS"
-		LISTA=$(dpkg -l | grep -i "$PACKAGE" | grep "$VERSION")
-		if [ -z "$LISTA" ];then
-			echo "Pacotes não encontrados"
-		else
-			echo "Resultados encontrados:"
-			echo "$LISTA" 
-		fi		
-	fi 
-	
-}
+
 
 #===========================================================================
 # ROLLBACK
