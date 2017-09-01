@@ -24,6 +24,14 @@ export ROLLBACK_PKG_DIR="/var/cache/apt/rollback"
 export ROLLBACK_PKG_DIR_OWNER="root"
 export APT_SEC_LOG="/var/log/apt-sec.log"
 
+function fn_requiriments()
+{
+	which psql
+	if [ "$?" ];then
+		echo "Install postgres client (apt-get install postgres)"
+		exit
+	fi
+}
 function fn_isRoot()
 {
 	ID=$(id -u) 
@@ -31,8 +39,11 @@ function fn_isRoot()
 		echo "Permission Denied to execute:"
 		echo "Use: sudo $0 $@"
 		exit 99
+	else
+		fn_requiriments	
 	fi
 }
+
 
 function fn_usage()
 {
