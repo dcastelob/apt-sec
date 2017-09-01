@@ -27,12 +27,12 @@ export APT_SEC_LOG="/var/log/apt-sec.log"
 function fn_requiriments()
 {
 	which psql
-	if [ "$?" ];then
+	if [ "$?" -ne 0 ];then
 		echo "Install postgres client (apt-get install postgresql-client)"
 		exit
 	fi
 	which lsb_release
-	if [ "$?" ];then
+	if [ "$?" -ne 0 ];then
 		echo "Install lsb_release (apt-get install lsb-release)"
 		exit
 	fi
