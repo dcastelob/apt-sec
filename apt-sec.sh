@@ -28,7 +28,12 @@ function fn_requiriments()
 {
 	which psql
 	if [ "$?" ];then
-		echo "Install postgres client (apt-get install postgres)"
+		echo "Install postgres client (apt-get install postgresql-client)"
+		exit
+	fi
+	which lsb_release
+	if [ "$?" ];then
+		echo "Install lsb_release (apt-get install lsb-release)"
 		exit
 	fi
 }
@@ -253,7 +258,7 @@ function fn_main()
 	case $OPT in
 	"--cve")
 		# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
-		if [ -e $FILE_CONTROL ]; then
+		if [ -e "$FILE_CONTROL" ]; then
 				ULTIMO=$(cat "$FILE_CONTROL")
 				ATUAL=$(date +%s)
 				if [ $(($ATUAL-$ULTIMO)) -gt "$EXPIRED" ];then
