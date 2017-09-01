@@ -44,8 +44,6 @@ function fn_isRoot()
 		echo "Permission Denied to execute:"
 		echo "Use: sudo $0 $@"
 		exit 99
-	else
-		fn_requiriments	
 	fi
 }
 
@@ -271,7 +269,7 @@ function fn_main()
 			fn_get_cve_db	
 		fi
 		
-		 apt-get update
+		apt-get update
 		# Verificando se todos os pacotes atualizaveis possuem um CVE associado
 		LISTA=$(fn_get_package_upgradeble)
 		for ITEM in $LISTA; do
@@ -339,7 +337,7 @@ function fn_main()
 }
 
 # inicio do script
-
+fn_requiriments
 fn_main "$1"
 
 #fn_get_packages_cve "$1"
