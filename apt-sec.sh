@@ -12,7 +12,6 @@
 #################################################################################################################
 
 
-export CODENOME=$(lsb_release -c | awk '{print $2}')
 
 
 export FILE_CONTROL="/tmp/apt-sec.ctrl"
@@ -29,22 +28,36 @@ export ROLLBACK_LIMITE=5
 
 function fn_requiriments()
 {
+	COUNT=0
+	PKG=""
 	which psql &> /dev/null
 	if [ "$?" -ne 0 ];then
-		echo "Install postgres client (apt-get install postgresql-client)"
-		exit
+		echo "Command psql not found."
+		PKG=$"{PKG} postgresql-client"
+		COUNT=$(($COUNT+1))
 	fi
 	which lsb_release &> /dev/null
 	if [ "$?" -ne 0 ];then
-		echo "Install lsb_release (apt-get install lsb-release)"
-		exit
+		echo "Command psql not found."
+		PKG=$"{PKG} lsb-release"
+		COUNT=$(($COUNT+1))
+	else
+		export CODENOME=$(lsb_release -c | awk '{print $2}')
+	
 	fi
 	
 	which column &> /dev/null
 	if [ "$?" -ne 0 ];then
-		echo "apt-get install bsdmainutils"
-		exit
+		echo "Command column not found." 
+		PKG=$"{PKG} bsdmainutils"
+		COUNT=$(($COUNT+1))
 	fi
+	
+	if [ "$COUNT" -ne 0 ];then
+		echo "Verifique a instalação dos pacotes pendentes"
+		echo "apt-get install $PKG"
+	fi
+	
 	
 }
 
@@ -74,6 +87,15 @@ function fn_line()
 	fi
 }
 
+function fn_titulo()
+{
+	MSG="$1"
+	fn_line
+	echo
+	echo " :: $MSG :: "
+	echo
+	fn_line 
+}
 
 function fn_usage()
 {
@@ -168,9 +190,9 @@ function fn_get_urgency_upgradable()
 	fi
 	
 	if [ -e "$TMP_DIR"/resume_chagelog ]; then
-		echo
-		echo " :: LIST ALL PACKAGES UPGRADEBLE - URGENCY ::"
-		echo 
+		
+		fn_titulo "LIST ALL PACKAGES UPGRADEBLE - URGENCY"
+
 		fn_line
 		printf "%-10s  | %-50s\n" " URGENCY" "PACKAGE (Version) - Channel"
 		fn_line
@@ -207,10 +229,9 @@ function fn_get_urgency_upgradable_summary()
 	fi
 	
 	if [ -e "$TMP_DIR"/resume_chagelog ]; then
-		echo
-		echo " :: SUMMARY OF PACKAGES UPGRADEBLE - URGENCY ::"
-		echo 
-		fn_line
+
+		fn_titulo "SUMMARY OF PACKAGES UPGRADEBLE - URGENCY"
+
 		printf " %-10s | %-50s\n" "TOTAL" "URGENCY"
 		fn_line
 		IFS_OLD="$IFS"
@@ -282,9 +303,9 @@ function fn_get_packages_cve()
 	fi
 	apt-get update
 	# Verificando se todos os pacotes atualizaveis possuem um CVE associado
-	echo
-	echo " :: LIST PACKAGES WITH CVE :: "
-	echo 
+	
+	fn_titulo "LIST PACKAGES WITH CVE"
+
 	LISTA=$(fn_get_package_upgradeble)
 	for ITEM in $LISTA; do
 		#echo "ITEM: $ITEM"
@@ -328,9 +349,9 @@ function fn_get_packages_cve_details()
 	fi
 	apt-get update
 	# Verificando se todos os pacotes atualizaveis possuem um CVE associado
-	echo
-	echo " :: LIST PACKAGES WITH CVE - DETAILS :: "
-	echo 
+
+	fn_titulo "LIST PACKAGES WITH CVE - DETAILS"
+
 	LISTA=$(fn_get_package_upgradeble)
 	for ITEM in $LISTA; do
 		#echo "ITEM: $ITEM"
@@ -393,9 +414,9 @@ function fn_get_package_upgradeble()
 function fn_upgrade_all ()
 {
 	apt-get update
-	echo 
-	echo " :: UPGRADE ALL PACKAGES :: "
-	echo
+	
+	fn_titulo "UPGRADE ALL PACKAGES"
+
 	# Atualizando todos os pacotes que obtiveram sucesso no download		
 	PKG_TO_UPDATE=""
 	LISTA=$(fn_get_package_upgradeble)
@@ -423,10 +444,9 @@ function fn_get_package_upgradeble_formated(){
 	# Função que gera uma lista formatada de pacotes atualizáveis	
 	
 	apt-get update
-	echo 
-	echo " :: LIST ALL PACKAGES UPGRADEBLE :: "
-	echo
 	
+	fn_titulo "LIST ALL PACKAGES UPGRADEBLE"
+		
 	#LIST=$( apt-get upgrade --assume-no -V | grep "^ ")
 	LIST=$( apt-get upgrade --assume-no -V | grep "^ " | awk '{print $1"|"$2"|"$4}'| sed 's/[)(]//g')
 	fn_line
@@ -584,9 +604,8 @@ function fn_menu_rollback()
 	OLD_IFS=$' \t\n'
 	IFS=$'\n'
 
-	fn_line
-	echo " ROLLBACK PACKAGES "
-	fn_line
+	fn_titulo "ROLLBACK PACKAGES"
+	
 	echo -e " Select number from rollback list (new on top) - Limited to $ROLLBACK_LIMITE itens:\n"
 	select OPT in $LISTA "Quit";  do
 		case $OPT in
