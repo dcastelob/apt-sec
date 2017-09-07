@@ -198,11 +198,15 @@ function fn_get_urgency_upgradable()
 		fn_line
 		IFS_OLD="$IFS"
 		IFS=$'\n'
+		COUNT=0
 		for PKG in $(cat "$TMP_DIR"/resume_chagelog);do
+			COUNT=$(($COUNT+1))
 			P=$(echo $PKG | awk -F";" '{print $1}')
 			URGENCY=$(echo $PKG | awk -F";" '{print $2}'| cut -d "=" -f2)
 			printf " %-10s | %-50s\n" "$URGENCY" "$P"
 		done
+		fn_line
+		echo " $COUNT - Packages to update"
 		fn_line
 		IFS="$IFS_OLD"
 	else
