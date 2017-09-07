@@ -12,19 +12,20 @@
 #################################################################################################################
 
 
-
 export CODENOME=$(lsb_release -c | awk '{print $2}')
 
 
 export FILE_CONTROL="/tmp/apt-sec.ctrl"
-export EXPIRED="3600"
+export EXPIRED="60"
 export CVE_DB_FILE="/tmp/apt-sec.cvedb"
+export TMP_DIR="/tmp"
 
 export ROLLBACK_PKG_DIR="/var/cache/apt/rollback"
 export ROLLBACK_PKG_DIR_OWNER="root"
 export APT_SEC_LOG="/var/log/apt-sec.log"
 
 export ROLLBACK_LIMITE=5
+
 
 function fn_requiriments()
 {
@@ -46,8 +47,12 @@ function fn_requiriments()
 	fi
 	
 }
+
+
 function fn_isRoot()
 {
+	# Função que verifica se o usuário tem privilegios de superusuário 
+		
 	ID=$(id -u) 
 	if [ "$ID" -ne 0 ]; then
 		echo "Permission Denied to execute:"
@@ -56,8 +61,11 @@ function fn_isRoot()
 	fi
 }
 
+
 function fn_line()
 {
+	# Função acessória que gera um linha
+	
 	CHAR="$1"
 	if [ -n "$CHAR" ];then
 		printf "%$(tput cols)s\n" | tr ' ' $CHAR
@@ -65,12 +73,16 @@ function fn_line()
 		printf "%$(tput cols)s\n" | tr ' ' -
 	fi
 }
+
+
 function fn_usage()
 {
 	echo "Usage: $0 <option>"
 	echo "Options:"
 	echo " -h|--help         - Help commands"
 	echo " -l|--list         - List all packages upgradable"
+	echo " -s|--summary      - List summary for packages upgradable urgency based"
+	echo " -u|--urgency      - List all packages upgradable with urgency"
 	echo " -a|--all          - Secure update for all packages upgradable"
 	echo " -c|--cve          - Secure update only packages with CVE associated"
 	echo " -C|--cve-details  - Secure update only packages with CVE associated detailed"
@@ -79,8 +91,151 @@ function fn_usage()
 	
 }
 
+
+function fn_verify_expired()
+{
+	# Função acessório que verifica se o tempo de espera para coleta de dados foi excedido 
+	
+	if [ -e "$FILE_CONTROL" ]; then
+		ULTIMO=$(cat "$FILE_CONTROL")
+		ATUAL=$(date +%s)
+		if [ $(($ATUAL-$ULTIMO)) -gt "$EXPIRED" ];then
+			# tempo maior que expirado
+			return 0
+		else
+			return 1	
+		fi		
+	else
+		return 0
+	fi
+}
+
+
+function fn_update_time()
+{
+	date +%s > "$FILE_CONTROL"
+}
+
+
+function fn_get_urgency_upgradable_data()
+{
+	# Função que coleta dos dados de urgencia a partir dos changelogs dos pacotes e salva a relação em um arquivo temporário
+	
+	
+	apt-get update
+	RELACAO=""
+	for PKG in $(apt-get upgrade -V --assume-no | grep "^ " | awk '{print $1}'); do
+		#echo "Pacote $PKG"
+		VAL="$PKG : "
+		#fn_line
+		export PAGER=cat
+		RESULTADO=$(aptitude changelog "$PKG" 2>/dev/null)
+		#echo "$RESULTADO"| head -n10
+		
+		RESP="$?"
+		if [ -z "$RESULTADO" ];then
+			VAL="${VAL}Not found change log for package $PKG; urgency=unknown"
+		fi
+		#echo "RESP: $RESP"
+		if [ "$RESP" -eq 0 ];then
+			VAL=${VAL}$(echo "$RESULTADO"| head -n2 | tail -n1)			
+		else
+			VAL=${VAL}$(echo "$PKG; urgency=unknown")
+		fi
+		RELACAO="${RELACAO}${VAL}\n"
+	done
+	echo -e "$RELACAO" | sort -t ";" -k 2 | uniq | grep -v ^$ > "$TMP_DIR"/resume_chagelog
+	
+	if [ -e "$TMP_DIR"/resume_chagelog ]; then
+		return 0
+	else
+		return 1
+	fi
+}
+
+function fn_get_urgency_upgradable()
+{
+	# Função que apresenta os pacotes a serem atualizados com as informações de urgência
+	
+	fn_verify_expired
+	RESP="$?"
+	
+	if [ "$RESP" -eq 0  ]; then
+		# tempo maior que expirado
+		echo "[info] Tempo expirado"
+		rm -f "$TMP_DIR"/resume_chagelog
+		fn_get_urgency_upgradable_data && fn_update_time
+	fi
+	
+	if [ -e "$TMP_DIR"/resume_chagelog ]; then
+		echo
+		echo " :: LIST ALL PACKAGES UPGRADEBLE - URGENCY ::"
+		echo 
+		fn_line
+		printf "%-10s  | %-50s\n" " URGENCY" "PACKAGE (Version) - Channel"
+		fn_line
+		IFS_OLD="$IFS"
+		IFS=$'\n'
+		for PKG in $(cat "$TMP_DIR"/resume_chagelog);do
+			P=$(echo $PKG | awk -F";" '{print $1}')
+			URGENCY=$(echo $PKG | awk -F";" '{print $2}'| cut -d "=" -f2)
+			printf " %-10s | %-50s\n" "$URGENCY" "$P"
+		done
+		fn_line
+		IFS="$IFS_OLD"
+	else
+		fn_get_urgency_upgradable_data
+		RESP="$?"
+		if [ "$RESP" -eq 0 ];then
+			fn_get_urgency_upgradable
+		fi
+	fi
+}
+
+
+function fn_get_urgency_upgradable_summary()
+{
+	# Função que apresenta um sumário dos pacotes por urgência
+	
+	fn_verify_expired
+	RESP="$?"
+	if [ "$RESP" -eq 0  ]; then
+		# tempo maior que expirado
+		echo "[info] Tempo expirado"
+		rm -f "$TMP_DIR"/resume_chagelog
+		fn_get_urgency_upgradable_data && fn_update_time
+	fi
+	
+	if [ -e "$TMP_DIR"/resume_chagelog ]; then
+		echo
+		echo " :: SUMMARY OF PACKAGES UPGRADEBLE - URGENCY ::"
+		echo 
+		fn_line
+		printf " %-10s | %-50s\n" "TOTAL" "URGENCY"
+		fn_line
+		IFS_OLD="$IFS"
+		IFS=$'\n'
+		for U in $(cat /tmp/resume_chagelog | cut -d";" -f2 | uniq );do
+			TOTAL_PKG=$(cat "$TMP_DIR"/resume_chagelog | grep "$U" | wc -l)
+			URGENCY=$(echo "$U" | cut -d"=" -f2)
+			printf " %-10s | %-50s\n" "$TOTAL_PKG" "Packages in $URGENCY" 
+		done
+		fn_line
+		IFS="$IFS_OLD"
+	else
+		fn_get_urgency_upgradable_data
+		RESP="$?"
+		if [ "$RESP" -eq 0 ];then
+			fn_get_urgency_upgradable_sumary
+		fi
+	fi
+}
+
+
 function fn_generate_apt_log()
 {
+	# Função que gera o log das operações realizadas
+	
 	DATE="$1"
 	PKG_COLLECTION="$2"
 	DATE_EVENT=$(date "+%x %T")
@@ -88,6 +243,7 @@ function fn_generate_apt_log()
 		echo "$DATE|$DATE_EVENT|$I" >> "$APT_SEC_LOG" 
 	done
 }
+
 
 function fn_get_cve_db()
 {
@@ -102,24 +258,112 @@ function fn_get_cve_db()
 function fn_get_packages_cve()
 {
 	
-	CVE="$1"
-	#VALOR=$(curl --silent https://security-tracker.debian.org/tracker/"$CVE" 2>&1 |sed -e 's/<[tr]*>/\n/g'|sed -e 's/<[^>]*>/ /g'|  grep "$CODENOME" | grep -v "(unfixed)"| tail -n1)
-	VALOR=$(curl --silent https://security-tracker.debian.org/tracker/"$CVE" 2>&1 |sed -e 's/<[tr]*>/\n/g'|sed -e 's/<[^>]*>/ /g')
+#	CVE="$1"
+#	#VALOR=$(curl --silent https://security-tracker.debian.org/tracker/"$CVE" 2>&1 |sed -e 's/<[tr]*>/\n/g'|sed -e 's/<[^>]*>/ /g'|  grep "$CODENOME" | grep -v "(unfixed)"| tail -n1)
+#	VALOR=$(curl --silent https://security-tracker.debian.org/tracker/"$CVE" 2>&1 |sed -e 's/<[tr]*>/\n/g'|sed -e 's/<[^>]*>/ /g')
 	
-	if [ -z "$VALOR" ];then
-		echo "Sem resultado"
+#	if [ -z "$VALOR" ];then
+#		echo "Sem resultado"
+#	else
+#		#echo resultado #"$VALOR"
+#		export PACKAGE_NAME=$(echo "$VALOR"| grep -A1 "^ Package" | tail -1 | awk '{print $1}')
+#		export SEVERITY=$(echo "$VALOR"| grep -i "severity" | awk '{print $3}')
+#		export VERSION=$(echo "$VALOR"|  grep "$CODENOME" | grep "fixed" | awk '{print $3}' | tail -n1)
+#		export DESCRIPTION=$(echo "$VALOR"| grep -i "Description" | sed 's/ Description//')	
+#	fi
+	
+	fn_verify_expired
+	RESP="$?"
+	
+	if [ "$RESP" -eq 0  ]; then
+		# tempo maior que expirado
+		echo "[info] Base de CVE expirada"
+		fn_get_cve_db && fn_update_time
+	fi
+	apt-get update
+	# Verificando se todos os pacotes atualizaveis possuem um CVE associado
+	echo
+	echo " :: LIST PACKAGES WITH CVE :: "
+	echo 
+	LISTA=$(fn_get_package_upgradeble)
+	for ITEM in $LISTA; do
+		#echo "ITEM: $ITEM"
+		PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
+		VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
+		VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
+		
+		#echo "PKG: $PKG, VER_OLD: $VER_OLD, VER_NEW: $VER_NEW "   #DEBUG
+		fn_locate_package_in_cve "$PKG"
+		RESP="$?"
+		if [ "$RESP" -eq 0 ]; then
+			#echo "PACOTE: $PKG"
+			fn_download_package_version "$PKG" "$VER_OLD"
+			RESP2="$?"
+			if [ "$RESP2" -eq 0 ]; then
+				PKG_COLLECTION=$(echo -e "${PKG_COLLECTION}\n${ITEM}")
+				PKG_TO_UPDATE="${PKG_TO_UPDATE} ${PKG}"
+			fi
+		fi
+	done
+	
+	if [ -n "$PKG_TO_UPDATE" ];then
+		echo "apt-get install $PKG_TO_UPDATE"
+		fn_generate_apt_log "$(date +%s)" "$PKG_COLLECTION"
 	else
-		#echo resultado #"$VALOR"
-		export PACKAGE_NAME=$(echo "$VALOR"| grep -A1 "^ Package" | tail -1 | awk '{print $1}')
-		export SEVERITY=$(echo "$VALOR"| grep -i "severity" | awk '{print $3}')
-		export VERSION=$(echo "$VALOR"|  grep "$CODENOME" | grep "fixed" | awk '{print $3}' | tail -n1)
-		export DESCRIPTION=$(echo "$VALOR"| grep -i "Description" | sed 's/ Description//')	
+		echo "Not found packages with CVE"	
 	fi
 		
 }
 
+
+function fn_get_packages_cve_details()
+{
+	fn_verify_expired
+	RESP="$?"
+	
+	if [ "$RESP" -eq 0  ]; then
+		# tempo maior que expirado
+		echo "[info] Base de CVE expirada"
+		fn_get_cve_db && fn_update_time
+	fi
+	apt-get update
+	# Verificando se todos os pacotes atualizaveis possuem um CVE associado
+	echo
+	echo " :: LIST PACKAGES WITH CVE - DETAILS :: "
+	echo 
+	LISTA=$(fn_get_package_upgradeble)
+	for ITEM in $LISTA; do
+		#echo "ITEM: $ITEM"
+		PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
+		VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
+		VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
+		
+		#echo "PKG: $PKG, VER_OLD: $VER_OLD, VER_NEW: $VER_NEW "   #DEBUG
+		fn_locate_package_in_cve_details "$PKG"
+		RESP="$?"
+		if [ "$RESP" -eq 0 ]; then
+			#echo "PACOTE: $PKG"
+			fn_download_package_version "$PKG" "$VER_OLD"
+			RESP2="$?"
+			if [ "$RESP2" -eq 0 ]; then
+				PKG_COLLECTION=$(echo -e "${PKG_COLLECTION}\n${ITEM}")
+				PKG_TO_UPDATE="${PKG_TO_UPDATE} ${PKG}"
+			fi
+		fi
+	done
+	
+	if [ -n "$PKG_TO_UPDATE" ];then
+		echo "apt-get install $PKG_TO_UPDATE"
+		fn_generate_apt_log "$(date +%s)" "$PKG_COLLECTION"
+	else
+		echo "Not found packages with CVE"	
+	fi
+}
+
+
 function fn_get_packages_dsa()
 {
+	#DESATIVADA
 	DSA="$1"
 	VALOR=$(curl --silent https://security-tracker.debian.org/tracker/"$DSA" 2>&1 |sed -e 's/<[tr]*>/\n/g'|sed -e 's/<[^>]*>/ /g'|  grep "$CODENOME" | grep -v "(unfixed)"| tail -n1)
 	if [ -z "$VALOR" ];then
@@ -129,8 +373,10 @@ function fn_get_packages_dsa()
 	fi
 }
 
-function fn_get_package_upgradeble(){
-	
+
+function fn_get_package_upgradeble()
+{
+	# Função que gera uma lista simples de pacotes atualizáveis	
 
 	#LIST=$( apt-get upgrade --assume-no -V | grep "^ ")
 	LIST=$( apt-get upgrade --assume-no -V | grep "^ " | awk '{print $1"|"$2"|"$4}'| sed 's/[)(]//g')
@@ -143,13 +389,48 @@ function fn_get_package_upgradeble(){
 	#printf "%-25s | %-15s | %-15s\n" "$PKG" "$VER_OLD" "$VER_NEW"
 }
 
+
+function fn_upgrade_all ()
+{
+	apt-get update
+	echo 
+	echo " :: UPGRADE ALL PACKAGES :: "
+	echo
+	# Atualizando todos os pacotes que obtiveram sucesso no download		
+	PKG_TO_UPDATE=""
+	LISTA=$(fn_get_package_upgradeble)
+	
+	for ITEM in $LISTA; do
+		#echo "ITEM: $ITEM"
+		PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
+		VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
+		VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
+		
+		fn_download_package_version "$PKG" "$VER_OLD"
+		RESP="$?"
+		
+		if [ "$RESP" -eq 0 ]; then
+			#echo "PACOTE: $PKG"
+			PKG_TO_UPDATE="${PKG_TO_UPDATE} ${PKG}"
+		fi
+	done
+	echo "apt-get install $PKG_TO_UPDATE"
+}
+
+
 function fn_get_package_upgradeble_formated(){
 	
-
+	# Função que gera uma lista formatada de pacotes atualizáveis	
+	
+	apt-get update
+	echo 
+	echo " :: LIST ALL PACKAGES UPGRADEBLE :: "
+	echo
+	
 	#LIST=$( apt-get upgrade --assume-no -V | grep "^ ")
 	LIST=$( apt-get upgrade --assume-no -V | grep "^ " | awk '{print $1"|"$2"|"$4}'| sed 's/[)(]//g')
 	fn_line
-	printf "%-45s | %-15s | %-15s\n" "Package" "From version" "To version"
+	printf " %-45s | %-25s | %-25s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
 	fn_line
 	for I in $LIST; do
 		PKG=$(echo "$I" | awk -F "|" '{print $1}')
@@ -157,7 +438,7 @@ function fn_get_package_upgradeble_formated(){
 		VER_NEW=$(echo "$I" | awk -F "|" '{print $3}')
 	
 	#echo "$LIST"
-	printf "%-45s | %-15s | %-15s\n" "$PKG" "$VER_OLD" "$VER_NEW"
+	printf " %-45s | %-25s | %-25s\n" "$PKG" "$VER_OLD" "$VER_NEW"
 	done
 	fn_line
 }
@@ -189,6 +470,7 @@ function fn_locate_package_in_cve()
 	fi
 }
 
+
 function fn_locate_package_in_cve_details()
 {
 	# função para localizar se existe CVE para atualização de pacote
@@ -214,6 +496,13 @@ function fn_locate_package_in_cve_details()
 		return 1	
 	fi
 }
+
+
+
+#===========================================================================
+# ROLLBACK FUCNTIONS
+#===========================================================================
+
 
 function fn_download_package_version()
 {
@@ -246,9 +535,6 @@ function fn_download_package_version()
 }
 
 
-
-#===========================================================================
-# ROLLBACK
 
 function fn_execute_rollback()
 {
@@ -323,6 +609,13 @@ function fn_menu_rollback()
 }
 
 
+
+
+#===========================================================================
+# FUNCÃO PRINCIPAL
+#===========================================================================
+
+
 function fn_main()
 {
 	
@@ -330,145 +623,47 @@ function fn_main()
 	
 	# Verifca se é root
 	fn_isRoot
-	
 			
 		
 	case $OPT in
-	-c|--cve)
-		# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
-		if [ -e "$FILE_CONTROL" ]; then
-				ULTIMO=$(cat "$FILE_CONTROL")
-				ATUAL=$(date +%s)
-				if [ $(($ATUAL-$ULTIMO)) -gt "$EXPIRED" ];then
-					# tempo maior que expirado
-					echo "[info] Base de CVE expirada"
-					fn_get_cve_db && date +%s > "$FILE_CONTROL"
-				fi		
-		else
-			date +%s > "$FILE_CONTROL"
-			fn_get_cve_db	
-		fi
+		-c|--cve)
+			# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
+			fn_get_packages_cve		
+			;;
+		-C|--cve-details)
 		
-		apt-get update
-		# Verificando se todos os pacotes atualizaveis possuem um CVE associado
-		echo
-		echo "::LIST PACKAGES WITH CVE::"
-		LISTA=$(fn_get_package_upgradeble)
-		for ITEM in $LISTA; do
-			#echo "ITEM: $ITEM"
-			PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
-			VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
-			VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
-			
-			#echo "PKG: $PKG, VER_OLD: $VER_OLD, VER_NEW: $VER_NEW "   #DEBUG
-			fn_locate_package_in_cve "$PKG"
-			RESP="$?"
-			if [ "$RESP" -eq 0 ]; then
-				#echo "PACOTE: $PKG"
-				fn_download_package_version "$PKG" "$VER_OLD"
-				RESP2="$?"
-				if [ "$RESP2" -eq 0 ]; then
-					PKG_COLLECTION=$(echo -e "${PKG_COLLECTION}\n${ITEM}")
-					PKG_TO_UPDATE="${PKG_TO_UPDATE} ${PKG}"
-				fi
-			fi
-		done
+			# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
+			fn_get_packages_cve_details
+			;;	
 		
-		if [ -n "$PKG_TO_UPDATE" ];then
-			echo "apt-get install $PKG_TO_UPDATE"
-			fn_generate_apt_log "$(date +%s)" "$PKG_COLLECTION"
-		else
-			echo "Not found packages with CVE"	
-		fi
-		;;
-	-C|--cve-details)
-		# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
-		if [ -e "$FILE_CONTROL" ]; then
-				ULTIMO=$(cat "$FILE_CONTROL")
-				ATUAL=$(date +%s)
-				if [ $(($ATUAL-$ULTIMO)) -gt "$EXPIRED" ];then
-					# tempo maior que expirado
-					echo "[info] Base de CVE expirada"
-					fn_get_cve_db && date +%s > "$FILE_CONTROL"
-				fi		
-		else
-			date +%s > "$FILE_CONTROL"
-			fn_get_cve_db	
-		fi
+		-a|--all)
+			fn_upgrade_all
+			;;	
 		
-		apt-get update
-		# Verificando se todos os pacotes atualizaveis possuem um CVE associado
-		echo
-		echo "::LIST PACKAGES WITH CVE - DETAILS::"
-		LISTA=$(fn_get_package_upgradeble)
-		for ITEM in $LISTA; do
-			#echo "ITEM: $ITEM"
-			PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
-			VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
-			VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
-			
-			#echo "PKG: $PKG, VER_OLD: $VER_OLD, VER_NEW: $VER_NEW "   #DEBUG
-			fn_locate_package_in_cve_details "$PKG"
-			RESP="$?"
-			if [ "$RESP" -eq 0 ]; then
-				#echo "PACOTE: $PKG"
-				fn_download_package_version "$PKG" "$VER_OLD"
-				RESP2="$?"
-				if [ "$RESP2" -eq 0 ]; then
-					PKG_COLLECTION=$(echo -e "${PKG_COLLECTION}\n${ITEM}")
-					PKG_TO_UPDATE="${PKG_TO_UPDATE} ${PKG}"
-				fi
-			fi
-		done
+		-l|--list)
+			fn_get_package_upgradeble_formated	
+			;;
 		
-		if [ -n "$PKG_TO_UPDATE" ];then
-			echo "apt-get install $PKG_TO_UPDATE"
-			fn_generate_apt_log "$(date +%s)" "$PKG_COLLECTION"
-		else
-			echo "Not found packages with CVE"	
-		fi
-		;;	
+		-s|--summary)	
+			fn_get_urgency_upgradable_summary
+			;;
 		
-	-a|--all)
-		 apt-get update
-		# Atualizando todos os pacotes que obtiveram sucesso no download		
-		PKG_TO_UPDATE=""
-		LISTA=$(fn_get_package_upgradeble)
+		-u|--urgency)	
+			fn_get_urgency_upgradable
+			;;
 		
-		for ITEM in $LISTA; do
-			#echo "ITEM: $ITEM"
-			PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
-			VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
-			VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
-			
-			fn_download_package_version "$PKG" "$VER_OLD"
-			RESP="$?"
-			
-			if [ "$RESP" -eq 0 ]; then
-				#echo "PACOTE: $PKG"
-				PKG_TO_UPDATE="${PKG_TO_UPDATE} ${PKG}"
-			fi
-		done
-		echo "apt-get install $PKG_TO_UPDATE"
-		;;	
-	-l|--list)
-		apt-get update
-		echo 
-		echo ":: LIST ALL PACKAGES UPGRADEBLE ::"
-		fn_get_package_upgradeble_formated	
-		;;
-	-h|--help)
-		fn_usage
-		;;
-	-R|--rollback)
-		fn_menu_rollback
-		;;		
-	*)
-		fn_usage
-		;;	
+		-R|--rollback)
+			fn_menu_rollback
+			;;
+	
+		-h|--help)
+			fn_usage
+			;;
+	
+		*)
+			fn_usage
+			;;	
 	esac  
-	
-	
 	
 }
 
@@ -476,13 +671,4 @@ function fn_main()
 fn_requiriments
 fn_main "$1"
 
-#fn_get_packages_cve "$1"
-#fn_get_cve
-
-#echo Nome: "$PACKAGE_NAME"
-#echo Versão: "$VERSION"
-#echo Severidade: "$SEVERITY"
-#echo Descrição: "$DESCRIPTION"
-
-# fn_verify_package "$PACKAGE_NAME" "$VERSION"
 
