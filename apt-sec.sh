@@ -110,9 +110,9 @@ function fn_usage()
 	echo " -l|--list         - List all packages upgradable"
 	echo " -s|--summary      - List summary for packages upgradable urgency based"
 	echo " -u|--urgency      - List all packages upgradable with urgency"
+	echo " -c|--cve-list     - List only packages with CVE associated"
 	echo " -a|--all          - Secure update for all packages upgradable"
-	echo " -c|--cve          - Secure update only packages with CVE associated"
-	echo " -C|--cve-details  - Secure update only packages with CVE associated detailed"
+	echo " -C|--cve-update   - Secure update only packages with CVE associated detailed"
 	echo " -R|--rollback     - Execute rollback old packages"
 	echo
 	
@@ -563,6 +563,8 @@ function fn_upgrade_all ()
 		fi
 	done
 	
+	DATA_OPERACAO=$(date +%s)
+	
 	if [ -n "$PKG_TO_UPDATE_FAIL" ];then
 		echo
 		echo "Packages not found actually version to garant rollback!"
@@ -583,7 +585,6 @@ function fn_upgrade_all ()
 				## Juntando todos os 
 				#ALL_COLLECTION=$(echo -e "${PKG_COLLECTION}\n${PKG_COLLECTION_FAIL}")
 				
-				DATA_OPERACAO=$(date +%s)
 				for ITEM in $PKG_COLLECTION; do
 					PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
 					VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
@@ -613,7 +614,6 @@ function fn_upgrade_all ()
 				echo "Segue apenas com os pacotes com suporte a Rollback"
 				#echo "Pacotes válidos: $PKG_TO_UPDATE"
 				
-				DATA_OPERACAO=$(date +%s)
 				for ITEM in $PKG_COLLECTION; do
 					PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
 					VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
@@ -632,9 +632,21 @@ function fn_upgrade_all ()
 				echo "Invalid option"
 				echo "Operation aborted!"
 		esac
+	
+	else
+		for ITEM in $PKG_COLLECTION; do
+			PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
+			VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
+			VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
+			echo "apt-get install "$PKG""
+			RESP="$?"
+			if [ "$RESP" -eq 0 ]; then
+				fn_generate_apt_log "$DATA_OPERACAO" "$ITEM" "ROLLBACK-ON"
+			fi
+		done		
 	fi
 	
-	cat "$APT_SEC_LOG"
+#	cat "$APT_SEC_LOG"
 	
 }
 
@@ -709,7 +721,8 @@ function fn_update_packages_cve ()
 	PKG_TO_UPDATE_FAIL_MSG=""
 	
 	
-	fn_get_package_upgradeble_formated
+	#fn_get_package_upgradeble_formated
+	fn_get_package_upgradeble_cve_formated
 	RESP="$?"
 	if [ "$RESP" -eq 0 ];then
 		echo	
@@ -749,20 +762,27 @@ function fn_update_packages_cve ()
 		VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
 		VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
 		
-		fn_download_package_version "$PKG" "$VER_OLD"
+		fn_locate_package_in_cve "$PKG" &> /dev/null
 		RESP="$?"
-		
 		if [ "$RESP" -eq 0 ]; then
-			#echo "PACOTE: $PKG"
-			PKG_TO_UPDATE="${PKG_TO_UPDATE} ${PKG}"
-			PKG_COLLECTION=$(echo -e "${PKG_COLLECTION}\n${ITEM}")			
-		else
-			# pacotes que não foi possivel realizar o download de pacotes atualmente instalados para possível rollback
-			PKG_TO_UPDATE_FAIL="${PKG_TO_UPDATE_FAIL} ${PKG}"
-			PKG_TO_UPDATE_FAIL_MSG="${PKG_TO_UPDATE_FAIL_MSG} ${PKG}=${VER_OLD}"
-			PKG_COLLECTION_FAIL=$(echo -e "${PKG_COLLECTION_FAIL}\n${ITEM}")		
-		fi
+			fn_download_package_version "$PKG" "$VER_OLD"
+			RESP="$?"
+		
+			if [ "$RESP" -eq 0 ]; then
+				#echo "PACOTE: $PKG"
+				PKG_TO_UPDATE="${PKG_TO_UPDATE} ${PKG}"
+				PKG_COLLECTION=$(echo -e "${PKG_COLLECTION}\n${ITEM}")			
+			else
+				# pacotes que não foi possivel realizar o download de pacotes atualmente instalados para possível rollback
+				PKG_TO_UPDATE_FAIL="${PKG_TO_UPDATE_FAIL} ${PKG}"
+				PKG_TO_UPDATE_FAIL_MSG="${PKG_TO_UPDATE_FAIL_MSG} ${PKG}=${VER_OLD}"
+				PKG_COLLECTION_FAIL=$(echo -e "${PKG_COLLECTION_FAIL}\n${ITEM}")		
+			fi
+		fi		
+		
 	done
+	
+	DATA_OPERACAO=$(date +%s)
 	
 	if [ -n "$PKG_TO_UPDATE_FAIL" ];then
 		echo
@@ -784,7 +804,7 @@ function fn_update_packages_cve ()
 				## Juntando todos os 
 				#ALL_COLLECTION=$(echo -e "${PKG_COLLECTION}\n${PKG_COLLECTION_FAIL}")
 				
-				DATA_OPERACAO=$(date +%s)
+				
 				for ITEM in $PKG_COLLECTION; do
 					PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
 					VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
@@ -814,7 +834,6 @@ function fn_update_packages_cve ()
 				echo "Segue apenas com os pacotes com suporte a Rollback"
 				#echo "Pacotes válidos: $PKG_TO_UPDATE"
 				
-				DATA_OPERACAO=$(date +%s)
 				for ITEM in $PKG_COLLECTION; do
 					PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
 					VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
@@ -833,58 +852,22 @@ function fn_update_packages_cve ()
 				echo "Invalid option"
 				echo "Operation aborted!"
 		esac
-	fi
-	
-	cat "$APT_SEC_LOG"
-	
-}
-
-
-
-function fn_update_packages_cve_details()
-{
-	fn_verify_expired
-	RESP="$?"
-	
-	if [ "$RESP" -eq 0  ]; then
-		# tempo maior que expirado
-		echo "[info] Base de CVE expirada"
-		fn_get_cve_db && fn_update_time
-	fi
-	apt-get update
-	# Verificando se todos os pacotes atualizaveis possuem um CVE associado
-
-	fn_titulo "LIST PACKAGES WITH CVE - DETAILS"
-
-	LISTA=$(fn_get_package_upgradeble)
-	for ITEM in $LISTA; do
-		#echo "ITEM: $ITEM"
-		PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
-		VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
-		VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
-		
-		#echo "PKG: $PKG, VER_OLD: $VER_OLD, VER_NEW: $VER_NEW "   #DEBUG
-		fn_locate_package_in_cve_details "$PKG"
-		RESP="$?"
-		if [ "$RESP" -eq 0 ]; then
-			#echo "PACOTE: $PKG"
-			fn_download_package_version "$PKG" "$VER_OLD"
-			RESP2="$?"
-			if [ "$RESP2" -eq 0 ]; then
-				PKG_COLLECTION=$(echo -e "${PKG_COLLECTION}\n${ITEM}")
-				PKG_TO_UPDATE="${PKG_TO_UPDATE} ${PKG}"
-			fi
-		fi
-	done
-	
-	if [ -n "$PKG_TO_UPDATE" ];then
-		echo "apt-get install $PKG_TO_UPDATE"
-		fn_generate_apt_log "$(date +%s)" "$PKG_COLLECTION"
 	else
-		echo "Not found packages with CVE"	
+		for ITEM in $PKG_COLLECTION; do
+			PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
+			VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
+			VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
+			echo "apt-get install "$PKG""
+			RESP="$?"
+			if [ "$RESP" -eq 0 ]; then
+				fn_generate_apt_log "$DATA_OPERACAO" "$ITEM" "ROLLBACK-ON"
+			fi
+		done	
 	fi
+	
+#	cat "$APT_SEC_LOG"
+	
 }
-
 
 
 
@@ -932,7 +915,7 @@ function fn_execute_rollback()
 	PKG_TO_PURGE=""
 	PKG_TO_REINSTALL=""
 	fn_line
-	printf "%-45s | %-20s | %-15s\n" "Package" "From New version" "To Old version"
+	printf " %-45s | %-25s | %-15s\n" "PACKAGE" "FROM NEW VERSION" "TO OLD VERSION"
 	fn_line
 	for P in $PKG_COLLECTION; do
 		
@@ -942,7 +925,7 @@ function fn_execute_rollback()
 		
 		PKG_TO_PURGE="${PKG_TO_PURGE} ${PKG}"
 		PKG_TO_REINSTALL="${PKG_TO_REINSTALL}  ${PKG}=${VER_NEW}"
-		printf "%-45s | %-20s | %-15s\n" "$PKG" "$VER_NEW" "$VER_OLD" 
+		printf " %-45s | %-25s | %-15s\n" "$PKG" "$VER_NEW" "$VER_OLD" 
 	done
 	fn_line
 	
@@ -1017,18 +1000,18 @@ function fn_main()
 		-a|--all)
 			fn_upgrade_all
 			;;	
-		-c|--cve)
-			# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
-			fn_get_package_upgradeble_cve_formated
-			#fn_update_packages_cve		
-			;;
-		-C|--cve-details)
 		
+		-c|--cve-list)
 			# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
 			fn_get_package_upgradeble_cve_formated detail
-			#fn_update_packages_cve_details
 			;;	
-				
+		
+		-C|--cve-update)
+			# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
+			#fn_get_package_upgradeble_cve_formated
+			fn_update_packages_cve		
+			;;
+						
 		-l|--list)
 			fn_get_package_upgradeble_formated	
 			;;
