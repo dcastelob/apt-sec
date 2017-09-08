@@ -952,8 +952,11 @@ function fn_execute_rollback()
 function fn_menu_rollback()
 {
 
+	fn_titulo "ROLLBACK PACKAGES"
+	
 	if [ ! -e "$APT_SEC_LOG" ];then
 		echo "Log file: $APT_SEC_LOG not found!"
+		echo "NOT ROLLBACK NEEDED!"
 		exit 2
 	fi
 	
@@ -961,8 +964,6 @@ function fn_menu_rollback()
 	LISTA=$(tac "$APT_SEC_LOG" | grep -v "^$" | awk -F "|" '{print $1" "$2}' | uniq -c  | awk '{print $2" | "$3" " $4" | "$1 " Package(s)"}' | head -n "$ROLLBACK_LIMITE" )
 	OLD_IFS=$' \t\n'
 	IFS=$'\n'
-
-	fn_titulo "ROLLBACK PACKAGES"
 	
 	echo -e " Select number from rollback list (new on top) - Limited to $ROLLBACK_LIMITE itens:\n"
 	select OPT in $LISTA "Quit";  do
