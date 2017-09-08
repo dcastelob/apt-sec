@@ -13,7 +13,7 @@
 
 
 
-
+#export LANG=en_US.UTF-8
 export FILE_CONTROL="/tmp/apt-sec.ctrl"
 export EXPIRED="120"
 export CVE_DB_FILE="/tmp/apt-sec.cvedb"
@@ -240,6 +240,24 @@ function fn_get_package_upgradeble()
 }
 
 
+function fn_get_all_package_upgradeble()
+{
+	# Função que gera uma lista simples de TODOS os pacotes atualizáveis	
+
+	LIST=$( apt-get upgrade --assume-no -V | grep "^ " | awk '{print $1"|"$2"|"$4"|UPGRADABLE"}'| sed 's/[)(]//g')
+	PKG_COLLECTION=""
+	#echo "$LIST"
+	for I in $LIST; do
+		PKG=$(echo "$I" | awk -F "|" '{print $1}')
+		LIST_DEP=$(apt-get install "$PKG" -V --assume-no | egrep -A1000 "The following packages will be upgraded:|Os pacotes a seguir serão atualizados:"| grep "^ " | awk '{print $1"|"$2"|"$4"|INSTALL"}' | sed 's/[)(]//g')
+		
+		#echo "$LIST_DEP"
+		PKG_COLLECTION=$(echo -e "${PKG_COLLECTION}\n${LIST_DEP}")
+	done	
+	
+	echo "$PKG_COLLECTION" | sort -t"|" -k1 | uniq
+}
+
 
 function fn_get_package_upgradeble_formated(){
 	
@@ -250,7 +268,8 @@ function fn_get_package_upgradeble_formated(){
 	fn_titulo "LIST ALL PACKAGES UPGRADEBLE"
 		
 	#LIST=$( apt-get upgrade --assume-no -V | grep "^ ")
-	LIST=$( apt-get upgrade --assume-no -V | grep "^ " | awk '{print $1"|"$2"|"$4}'| sed 's/[)(]//g')
+	#LIST=$( apt-get upgrade --assume-no -V | grep "^ " | awk '{print $1"|"$2"|"$4}'| sed 's/[)(]//g')
+	LIST=$(fn_get_all_package_upgradeble)
 	fn_line
 	printf " %-45s | %-25s | %-25s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
 	COUNT=0
@@ -281,9 +300,11 @@ function fn_get_urgency_upgradable_data()
 	# Função que coleta dos dados de urgencia a partir dos changelogs dos pacotes e salva a relação em um arquivo temporário
 		
 	apt-get update
+	#export LANG="pt_BR.UTF-8"
 	RELACAO=""
-	for PKG in $(apt-get upgrade -V --assume-no | grep "^ " | awk '{print $1}'); do
-		#echo "Pacote $PKG"
+	#for PKG in $(apt-get upgrade -V --assume-no | grep "^ " | awk '{print $1}'); do
+	for PKG in $(fn_get_all_package_upgradeble | awk -F "|" '{print $1}'); do
+		#echo "PKG: $PKG"
 		VAL="$PKG : "
 		#fn_line
 		export PAGER=cat
@@ -431,7 +452,8 @@ function fn_get_package_upgradeble_cve_formated(){
 	fn_titulo "LIST ALL PACKAGES UPGRADEBLE - CVE"
 		
 	#LIST=$( apt-get upgrade --assume-no -V | grep "^ ")
-	LIST=$( apt-get upgrade --assume-no -V | grep "^ " | awk '{print $1"|"$2"|"$4}'| sed 's/[)(]//g')
+	#LIST=$( apt-get upgrade --assume-no -V | grep "^ " | awk '{print $1"|"$2"|"$4}'| sed 's/[)(]//g')
+	LIST=$(fn_get_all_package_upgradeble)
 	COUNT=0
 	
 	printf " %-10s | %-16s | %-25s | %-10s %s\n" "CVE          " "SEVERITY" "PACKAGE" "VERSION"
@@ -520,7 +542,7 @@ function fn_upgrade_all ()
     	case $RESP in
 			Y|S)
 				# sim
-				echo "Initiate download for actually version for rollback operations..."
+				echo "Inittiate download for actually version for rollback operations..."
 				;;
 
 			N)
@@ -734,7 +756,7 @@ function fn_update_packages_cve ()
     	case $RESP in
 			Y|S)
 				# sim
-				echo "Initiate download for actually version for rollback operations..."
+				echo "Inittiate download for actually version for rollback operations..."
 				;;
 
 			N)
@@ -755,7 +777,7 @@ function fn_update_packages_cve ()
     	
 	fi
 	
-	LISTA=$(fn_get_package_upgradeble)
+	LISTA=$(fn_get_all_package_upgradeble)
 	for ITEM in $LISTA; do
 		#echo "ITEM: $ITEM"
 		PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
@@ -892,22 +914,34 @@ function fn_download_package_version()
 	fi
 	cd "$ROLLBACK_PKG_DIR"
 	
-	LOCALIZA=$(ls /var/cache/apt/archive/"${PKG}_$VERSION_*.deb" 2>/dev/null)
-	if [ -n "$LOCALIZA" ];then
-		cp "${PKG}_${VERSION}_*.deb" "$ROLLBACK_PKG_DIR/"
-		echo "[info] Pacote: ${PKG}_$VERSION (existente no archives) foi arquivado para rollback em: $ROLLBACK_PKG_DIR" 
-	else
-		 apt-get download "$PKG"="$VERSION" 2> /dev/null
-		RESULT="$?"
-		#echo "DOWNLOAD RESULT: $RESULT"   #DEBUG
-		if [ "$RESULT" -eq 0 ];then
-			echo "[info] Pacote: ${PKG}_$VERSION baixado e arquivado para rollback em: $ROLLBACK_PKG_DIR"
-			return 0
+	LIST_DEP=$(apt-get install "$PKG" -V --assume-no | egrep -A1000 "The following packages will be upgraded:|Os pacotes a seguir serão atualizados:"| grep "^ " | awk '{print $1"|"$2"|"$4"|INSTALL"}' | sed 's/[)(]//g')
+	
+	#echo "DEPENDENCIAS $LIST_DEP"  #DEBUG
+	
+	for P in $LIST_DEP; do 
+		TMP_PKG=$(echo "$P" | awk -F "|" '{print $1}')
+		TMP_OLD_VER=$(echo "$P" | awk -F "|" '{print $2}')
+		
+		#LOCALIZA=$(ls /var/cache/apt/archive/"${PKG}_$VERSION_*.deb" 2>/dev/null)
+		LOCALIZA=$(ls /var/cache/apt/archive/"${TMP_PKG}_${TMP_OLD_VER}_*.deb" 2>/dev/null)
+		if [ -n "$LOCALIZA" ];then
+			#cp "${PKG}_${VERSION}_*.deb" "$ROLLBACK_PKG_DIR/"
+			cp "/var/cache/apt/archive/${TMP_PKG}_${TMP_OLD_VER}_*.deb" "$ROLLBACK_PKG_DIR/"
+			echo "[info] Pacote: ${TMP_PKG}_${TMP_OLD_VER} (existente no archives) foi arquivado para rollback em: $ROLLBACK_PKG_DIR" 
 		else
-			echo "[Erro] Problemas ao baixar pacote: ${PKG}_$VERSION para rollback em: $ROLLBACK_PKG_DIR"
-			return 1	
+			#apt-get download "$PKG"="$VERSION" 2> /dev/null
+			apt-get download "${TMP_PKG}"="${TMP_OLD_VER}" 2> /dev/null
+			RESULT="$?"
+			#echo "DOWNLOAD RESULT: $RESULT"   #DEBUG
+			if [ "$RESULT" -eq 0 ];then
+				echo "[info] Pacote: ${TMP_PKG}_${TMP_OLD_VER} baixado e arquivado para rollback em: $ROLLBACK_PKG_DIR"
+				#return 0
+			else
+				echo "[Erro] Problemas ao baixar pacote: ${TMP_PKG}_${TMP_OLD_VER} para rollback em: $ROLLBACK_PKG_DIR"
+				#return 1	
+			fi
 		fi
-	fi
+	done	
 }
 
 
@@ -1025,9 +1059,18 @@ function fn_main()
 			;;
 						
 		-l|--list)
-			fn_get_package_upgradeble_formated	
+			fn_get_package_upgradeble_formated
 			;;
-		
+			
+		-t)
+			echo "fn_get_all_package_upgradeble"
+			fn_get_all_package_upgradeble
+			
+			echo "fn_get_urgency_upgradable_data"
+			fn_get_urgency_upgradable_data
+			cat /tmp/resume_chagelog 
+			;;
+
 		-s|--summary)	
 			fn_get_urgency_upgradable_summary
 			;;
