@@ -491,7 +491,7 @@ function fn_get_package_upgradeble_cve_formated(){
 	echo " $COUNT - Packages to update"
 	fn_line
 	
-	if [ -n "$LIST" ]; then
+	if [ "$COUNT" -ne 0  ]; then
 		return 0
 	else
 		return 1	
