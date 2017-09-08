@@ -455,7 +455,7 @@ function fn_get_package_upgradeble_cve_formated(){
 					printf " %-10s | %-16s | %-25s | %-10s \n" "$CVE" "$SEVERITY" "$PKG" "$VERSION"
 					fn_line
 					printf " DESCRIPTION: %-s \n" "$DESCRIPTION"
-					fn_line "_"
+					fn_line "="
 					;;
 				*)	
 					printf " %-10s | %-16s | %-25s | %-10s %s\n" "$CVE" "$SEVERITY" "$PKG" "$VERSION"
