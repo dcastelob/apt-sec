@@ -809,7 +809,8 @@ function fn_update_packages_cve ()
 					PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
 					VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
 					VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
-					echo "apt-get install "$PKG""
+					#echo "apt-get install "$PKG""
+					apt-get install "$PKG"
 					RESP="$?"
 					if [ "$RESP" -eq 0 ]; then
 						fn_generate_apt_log "$DATA_OPERACAO" "$ITEM" "ROLLBACK-ON"
@@ -820,7 +821,8 @@ function fn_update_packages_cve ()
 					PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
 					VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
 					VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
-					echo "apt-get install "$PKG""
+					#echo "apt-get install $PKG"
+					apt-get install "$PKG"
 					RESP="$?"
 					if [ "$RESP" -eq 0 ]; then
 						fn_generate_apt_log "$DATA_OPERACAO" "$ITEM" "ROLLBACK-OFF"
@@ -838,7 +840,8 @@ function fn_update_packages_cve ()
 					PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
 					VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
 					VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
-					echo "apt-get install "$PKG""
+					#echo "apt-get install $PKG"
+					apt-get install "$PKG"
 					RESP="$?"
 					if [ "$RESP" -eq 0 ]; then
 						fn_generate_apt_log "$DATA_OPERACAO" "$ITEM" "ROLLBACK-ON"
@@ -857,7 +860,8 @@ function fn_update_packages_cve ()
 			PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
 			VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
 			VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
-			echo "apt-get install "$PKG""
+			#echo "apt-get install $PKG"
+			apt-get install "$PKG"
 			RESP="$?"
 			if [ "$RESP" -eq 0 ]; then
 				fn_generate_apt_log "$DATA_OPERACAO" "$ITEM" "ROLLBACK-ON"
@@ -958,7 +962,7 @@ function fn_menu_rollback()
 	LISTA=$(tac "$APT_SEC_LOG" | grep -v "^$"| grep "ROLLBACK-ON" | awk -F "|" '{print $1" "$2}' | uniq -c  | awk '{print $2" | "$3" " $4" | "$1 " Package(s)"}' | head -n "$ROLLBACK_LIMITE" )
 	
 	if [ ! -e "$APT_SEC_LOG" -o -z "$LISTA" ];then
-		echo "Log file: $APT_SEC_LOG not found!"
+		echo "Log file: $APT_SEC_LOG not valid register found!"
 		echo "NOT ROLLBACK NEEDED!"
 		exit 2
 	fi
