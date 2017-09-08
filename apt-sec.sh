@@ -96,9 +96,9 @@ function fn_titulo()
 {
 	MSG="$1"
 	fn_line
-	echo
+	#echo
 	echo " :: $MSG :: "
-	echo
+	#echo
 	fn_line 
 }
 
@@ -685,7 +685,7 @@ function fn_update_packages_cve_old()
 	
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
-		echo "[info] Base de CVE expirada"
+		echo "[info] CVE database expired"
 		fn_get_cve_db && fn_update_time
 	fi
 	apt-get update
