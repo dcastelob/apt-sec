@@ -961,7 +961,7 @@ function fn_menu_rollback()
 	fi
 	
 	
-	LISTA=$(tac "$APT_SEC_LOG" | grep -v "^$" | awk -F "|" '{print $1" "$2}' | uniq -c  | awk '{print $2" | "$3" " $4" | "$1 " Package(s)"}' | head -n "$ROLLBACK_LIMITE" )
+	LISTA=$(tac "$APT_SEC_LOG" | grep -v "^$"| grep "ROLLBACK-ON" | awk -F "|" '{print $1" "$2}' | uniq -c  | awk '{print $2" | "$3" " $4" | "$1 " Package(s)"}' | head -n "$ROLLBACK_LIMITE" )
 	OLD_IFS=$' \t\n'
 	IFS=$'\n'
 	
