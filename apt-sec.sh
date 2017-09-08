@@ -434,7 +434,7 @@ function fn_get_package_upgradeble_cve_formated(){
 	LIST=$( apt-get upgrade --assume-no -V | grep "^ " | awk '{print $1"|"$2"|"$4}'| sed 's/[)(]//g')
 	COUNT=0
 	
-	printf " %-10s | %-10s | %-25s | %-10s %s\n" "CVE          " "SEVERITY" "PACKAGE" "VERSION"
+	printf " %-10s | %-16s | %-25s | %-10s %s\n" "CVE          " "SEVERITY" "PACKAGE" "VERSION"
 	fn_line
 	for I in $LIST; do
 		
