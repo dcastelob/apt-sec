@@ -452,12 +452,12 @@ function fn_get_package_upgradeble_cve_formated(){
 			
 			case "$FORMAT" in
 				detail)
-					printf " %-10s | %-10s | %-25s | %-10s \n" "$CVE" "$SEVERITY" "$PKG" "$VERSION"
+					printf " %-10s | %-16s | %-25s | %-10s \n" "$CVE" "$SEVERITY" "$PKG" "$VERSION"
 					fn_line
 					printf " DESCRIPTION: %-s \n" "$DESCRIPTION"
 					;;
 				*)	
-					printf " %-10s | %-10s | %-25s | %-10s %s\n" "$CVE" "$SEVERITY" "$PKG" "$VERSION"
+					printf " %-10s | %-16s | %-25s | %-10s %s\n" "$CVE" "$SEVERITY" "$PKG" "$VERSION"
 					;;	
 			esac		
 		fi		
