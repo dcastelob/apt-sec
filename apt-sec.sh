@@ -249,7 +249,7 @@ function fn_get_all_package_upgradeble()
 	#echo "$LIST"
 	for I in $LIST; do
 		PKG=$(echo "$I" | awk -F "|" '{print $1}')
-		LIST_DEP=$(apt-get install "$PKG" -V --assume-no | egrep -A1000 "The following packages will be upgraded:|Os pacotes a seguir serão atualizados:"| grep "^ " | awk '{print $1"|"$2"|"$4"|INSTALL"}' | sed 's/[)(]//g')
+		LIST_DEP=$(apt-get install "$PKG" -V --assume-no | egrep -A1000 "The following packages|Os pacotes a seguir"| grep "^ " | awk '{print $1"|"$2"|"$4"|INSTALL"}' | sed 's/[)(]//g')
 		
 		#echo "$LIST_DEP"
 		PKG_COLLECTION=$(echo -e "${PKG_COLLECTION}\n${LIST_DEP}")
