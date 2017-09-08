@@ -952,6 +952,12 @@ function fn_execute_rollback()
 function fn_menu_rollback()
 {
 
+	if [ ! -e "$APT_SEC_LOG" ];then
+		echo "Log file: $APT_SEC_LOG not found!"
+		exit 2
+	fi
+	
+	
 	LISTA=$(tac "$APT_SEC_LOG" | grep -v "^$" | awk -F "|" '{print $1" "$2}' | uniq -c  | awk '{print $2" | "$3" " $4" | "$1 " Package(s)"}' | head -n "$ROLLBACK_LIMITE" )
 	OLD_IFS=$' \t\n'
 	IFS=$'\n'
