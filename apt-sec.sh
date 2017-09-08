@@ -124,9 +124,11 @@ function fn_generate_apt_log()
 	# Função acessório que gera o log das operações realizadas
 	
 	DATE="$1"
-	PKG_COLLECTION="$2"
-	ROLLBACK_ENABLE="$3"
-	DATE_EVENT=$(date "+%x %T")
+	#DATE_EVENT=$(date "+%x %T")
+	DATE_EVENT="$2"
+	PKG_COLLECTION="$3"
+	ROLLBACK_ENABLE="$4"
+	
 	for I in $PKG_COLLECTION; do
 		echo "$DATE|$DATE_EVENT|$ROLLBACK_ENABLE|$I" >> "$APT_SEC_LOG" 
 	done
@@ -585,7 +587,8 @@ function fn_upgrade_all ()
 		fi
 	done
 	
-	DATA_OPERACAO=$(date +%s)
+	OPERACAO_TIMESTAMP=$(date +%s)
+	OPERACAO_DATA=$(date "+%x %T")
 	
 	if [ -n "$PKG_TO_UPDATE_FAIL" ];then
 		echo
@@ -614,7 +617,7 @@ function fn_upgrade_all ()
 					echo "apt-get install "$PKG""
 					RESP="$?"
 					if [ "$RESP" -eq 0 ]; then
-						fn_generate_apt_log "$DATA_OPERACAO" "$ITEM" "ROLLBACK-ON"
+						fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "$ITEM" "ROLLBACK-ON"
 					fi
 				done
 				
@@ -625,7 +628,7 @@ function fn_upgrade_all ()
 					echo "apt-get install "$PKG""
 					RESP="$?"
 					if [ "$RESP" -eq 0 ]; then
-						fn_generate_apt_log "$DATA_OPERACAO" "$ITEM" "ROLLBACK-OFF"
+						fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "$ITEM" "ROLLBACK-OFF"
 					fi
 				done
 				
@@ -643,7 +646,7 @@ function fn_upgrade_all ()
 					echo "apt-get install "$PKG""
 					RESP="$?"
 					if [ "$RESP" -eq 0 ]; then
-						fn_generate_apt_log "$DATA_OPERACAO" "$ITEM" "ROLLBACK-ON"
+						fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "$ITEM" "ROLLBACK-ON"
 					fi
 				done
 				;;
@@ -663,7 +666,7 @@ function fn_upgrade_all ()
 			echo "apt-get install "$PKG""
 			RESP="$?"
 			if [ "$RESP" -eq 0 ]; then
-				fn_generate_apt_log "$DATA_OPERACAO" "$ITEM" "ROLLBACK-ON"
+				fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "$ITEM" "ROLLBACK-ON"
 			fi
 		done		
 	fi
@@ -714,7 +717,7 @@ function fn_update_packages_cve_old()
 	
 	if [ -n "$PKG_TO_UPDATE" ];then
 		echo "apt-get install $PKG_TO_UPDATE"
-		fn_generate_apt_log "$(date +%s)" "$PKG_COLLECTION"
+		fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "$PKG_COLLECTION" "ROLLBACK-ON"
 	else
 		echo "Not found packages with CVE"	
 	fi
@@ -804,7 +807,8 @@ function fn_update_packages_cve ()
 		
 	done
 	
-	DATA_OPERACAO=$(date +%s)
+	OPERACAO_TIMESTAMP=$(date +%s)
+	OPERACAO_DATA=$(date "+%x %T")
 	
 	if [ -n "$PKG_TO_UPDATE_FAIL" ];then
 		echo
@@ -835,7 +839,7 @@ function fn_update_packages_cve ()
 					apt-get install "$PKG"
 					RESP="$?"
 					if [ "$RESP" -eq 0 ]; then
-						fn_generate_apt_log "$DATA_OPERACAO" "$ITEM" "ROLLBACK-ON"
+						fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "$ITEM" "ROLLBACK-ON"
 					fi
 				done
 				
@@ -847,7 +851,7 @@ function fn_update_packages_cve ()
 					apt-get install "$PKG"
 					RESP="$?"
 					if [ "$RESP" -eq 0 ]; then
-						fn_generate_apt_log "$DATA_OPERACAO" "$ITEM" "ROLLBACK-OFF"
+						fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "$ITEM" "ROLLBACK-OFF"
 					fi
 				done
 				
@@ -866,7 +870,7 @@ function fn_update_packages_cve ()
 					apt-get install "$PKG"
 					RESP="$?"
 					if [ "$RESP" -eq 0 ]; then
-						fn_generate_apt_log "$DATA_OPERACAO" "$ITEM" "ROLLBACK-ON"
+						fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "$ITEM" "ROLLBACK-ON"
 					fi
 				done
 				;;
@@ -886,7 +890,7 @@ function fn_update_packages_cve ()
 			apt-get install "$PKG"
 			RESP="$?"
 			if [ "$RESP" -eq 0 ]; then
-				fn_generate_apt_log "$DATA_OPERACAO" "$ITEM" "ROLLBACK-ON"
+				fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "$ITEM" "ROLLBACK-ON"
 			fi
 		done	
 	fi
