@@ -1,0 +1,7 @@
+# Criando conteiners de teste
+docker run --name "debian7" -v /home/dcastelob/Documentos/scripts/apt-sec/git/apt-sec:/script -it debian:7 bash
+
+
+docker run --name "debianJessie" -v /home/dcastelob/Documentos/scripts/apt-sec/git/apt-sec:/script -it debian:Jessie bash
+
+docker run --name "debianOld" -v /home/dcastelob/Documentos/scripts/apt-sec/git/apt-sec:/script -it debian:6 bash

@@ -12,10 +12,16 @@
 #################################################################################################################
 
 
-
+###############################################################################
+# VARIAVEIS DE CONTROLE
+#############################################################################
 #export LANG=en_US.UTF-8
+export VERBOSE=no
+
 export FILE_CONTROL="/tmp/apt-sec.ctrl"
-export EXPIRED="120"
+export EXPIRED_CVE="120"
+export EXPIRED_UPDATE="60"
+
 export CVE_DB_FILE="/tmp/apt-sec.cvedb"
 export TMP_DIR="/tmp"
 
@@ -33,18 +39,19 @@ export CVE_DB_LIMITE=10000
 
 function fn_requiriments()
 {
+	
 	COUNT=0
 	PKG=""
 	which psql &> /dev/null
 	if [ "$?" -ne 0 ];then
-		echo "Command psql not found."
-		PKG=$"{PKG} postgresql-client"
+		echo "[FAIL] Command 'psql' not found."
+		PKG="${PKG} postgresql-client"
 		COUNT=$(($COUNT+1))
 	fi
 	which lsb_release &> /dev/null
 	if [ "$?" -ne 0 ];then
-		echo "Command psql not found."
-		PKG=$"{PKG} lsb-release"
+		echo "[FAIL] Command 'lsb_release' not found."
+		PKG="${PKG} lsb-release"
 		COUNT=$(($COUNT+1))
 	else
 		export CODENOME=$(lsb_release -c | awk '{print $2}')
@@ -53,16 +60,24 @@ function fn_requiriments()
 	
 	which column &> /dev/null
 	if [ "$?" -ne 0 ];then
-		echo "Command column not found." 
-		PKG=$"{PKG} bsdmainutils"
+		echo "[FAIL] Command 'column' not found." 
+		PKG="${PKG} bsdmainutils"
+		COUNT=$(($COUNT+1))
+	fi
+
+	which aptitude &> /dev/null
+	if [ "$?" -ne 0 ];then
+		echo "[FAIL] Command 'aptitude' not found." 
+		PKG="${PKG} aptitude"
 		COUNT=$(($COUNT+1))
 	fi
 	
 	if [ "$COUNT" -ne 0 ];then
-		echo "Verifique a instalação dos pacotes pendentes"
-		echo "apt-get install $PKG"
+		echo "[INFO] Verify requiriments..."
+		echo "[FAIL] Packages pendents"
+		echo "apt-get update && apt-get -y install $PKG"
+		exit 1
 	fi
-	
 	
 }
 
@@ -102,6 +117,11 @@ function fn_titulo()
 	fn_line 
 }
 
+function fn_get_terminal_size()
+{
+	echo $(($(tput cols)-2))
+}
+
 function fn_usage()
 {
 	echo "Usage: $0 <option>"
@@ -134,21 +154,50 @@ function fn_generate_apt_log()
 	done
 }
 
+function fn_get_timestamp_begin()
+{
+	export TIMESTAMP_BEGIN=$(date +%s)
+}
+
+function fn_get_timestamp_end()
+{
+	TIMESTAMP_END=$(date +%s)
+	if [ -n "$TIMESTAMP_BEGIN" ];then
+		echo " Elapsed time: $(( $TIMESTAMP_END -$TIMESTAMP_BEGIN  )) seconds"
+	fi
+}
+
 
 function fn_verify_expired()
 {
 	# Função acessório que verifica se o tempo de espera para coleta de dados foi excedido 
-	
+	OPTION="$1"
+	ATUAL=$(date +%s)
+
 	if [ -e "$FILE_CONTROL" ]; then
-		ULTIMO=$(cat "$FILE_CONTROL")
-		ATUAL=$(date +%s)
+		ULTIMO=$(cat "$FILE_CONTROL" | grep "$OPTION" | awk -F"=" '{print $2}')
+						
+		OPTION=$(echo "$OPTION" | tr "a-z" "A-Z")
+		case "$OPTION" in 
+		CVE)
+			EXPIRED="${EXPIRED_CVE}"		
+			;;
+		UPDATE)
+			EXPIRED="${EXPIRED_UPDATE}"
+			;;
+		esac
+
 		if [ $(($ATUAL-$ULTIMO)) -gt "$EXPIRED" ];then
 			# tempo maior que expirado
+			#echo "Valor: OPTION: $OPTION e ULTIMO: $ULTIMO, DIF:$(($ATUAL-$ULTIMO)),  EXPIRED: $EXPIRED"
 			return 0
 		else
 			return 1	
 		fi		
 	else
+		# inicializando o arquivo de controle caso ele não exista
+		echo "cve=$ATUAL" > "$FILE_CONTROL"
+		echo "update=$ATUAL" >> "$FILE_CONTROL"
 		return 0
 	fi
 }
@@ -156,9 +205,44 @@ function fn_verify_expired()
 
 function fn_update_time()
 {
-	# Função de autualiza a data no arquivo de controle de expiração
-	date +%s > "$FILE_CONTROL"
+	# Função de autualiza o timestemp no arquivo de controle de expiração para a opção deseja
+	OPTION="$1"
+	NEW_TIME=$(date +%s)
+
+	OPTION=$(echo "$OPTION" | tr "a-z" "A-Z")
+	case "$OPTION" in 
+		CVE)
+			 sed -i "s/cve=.*/cve=$NEW_TIME/" "$FILE_CONTROL"			
+			;;
+		UPDATE)
+			sed -i "s/update=.*/update=$NEW_TIME/" "$FILE_CONTROL"
+			;;
+	esac
 }
+
+function fn_aptget_update()
+{
+	fn_verify_expired "update"
+	RESP="$?"
+	
+	if [ "$RESP" -eq 0  ]; then
+		# tempo maior que expirado
+		echo "[INFO] apt-get update time expired..."
+		VERBOSE=$(echo "$VERBOSE" | tr "a-z" "A-Z")
+		echo "[INFO] Update apt base (apt-get update) - Verbose Mode: $VERBOSE"
+		case "$VERBOSE" in
+			YES|1|TRUE)
+				apt-get update 
+				fn_update_time "update"
+				;;
+			*)
+				apt-get update &> /dev/null 
+				fn_update_time "update"
+				;;	
+		esac
+	fi
+}
+
 
 ###############################################################################
 # FUNCOES DE LOCALIZACAO
@@ -168,6 +252,7 @@ function fn_update_time()
 function fn_locate_package_in_cve()
 {
 	# função para localizar se existe CVE para atualização de pacote
+	
 	PKG="$1"
 	#cat "$CVE_DB_FILE" | grep "| $PKG " | head -n1 |sed 's/ //g'| awk -F "|" '{print $1" "$2" "$3" "$4" "$7}'
 	RESULTADO=$(cat "$CVE_DB_FILE" | grep "| $PKG " | head -n1 | awk -F "|" '{print $1"|"$2"|"$3"|"$4"|"$7}')
@@ -196,6 +281,7 @@ function fn_locate_package_in_cve()
 function fn_locate_package_in_cve_details()
 {
 	# função para localizar se existe CVE para atualização de pacote
+	
 	PKG="$1"
 	#cat "$CVE_DB_FILE" | grep "| $PKG " | head -n1 |sed 's/ //g'| awk -F "|" '{print $1" "$2" "$3" "$4" "$7}'
 	RESULTADO=$(cat "$CVE_DB_FILE" | grep "| $PKG " | head -n1 | awk -F "|" '{print $1"|"$2"|"$3"|"$4"|"$7}')
@@ -230,7 +316,6 @@ function fn_get_package_upgradeble()
 {
 	# Função que gera uma lista simples de pacotes atualizáveis	
 
-	#LIST=$( apt-get upgrade --assume-no -V | grep "^ ")
 	LIST=$( apt-get upgrade --assume-no -V | grep "^ " | awk '{print $1"|"$2"|"$4}'| sed 's/[)(]//g')
 	
 	PKG=$(echo "$LIST" | awk -F "|" '{print $1}')
@@ -245,7 +330,7 @@ function fn_get_package_upgradeble()
 function fn_get_all_package_upgradeble()
 {
 	# Função que gera uma lista simples de TODOS os pacotes atualizáveis	
-
+	
 	LIST=$( apt-get upgrade --assume-no -V | grep "^ " | awk '{print $1"|"$2"|"$4"|UPGRADABLE"}'| sed 's/[)(]//g')
 	PKG_COLLECTION=""
 	#echo "$LIST"
@@ -265,7 +350,15 @@ function fn_get_package_upgradeble_formated(){
 	
 	# Função que gera uma lista formatada de pacotes atualizáveis	
 	
-	apt-get update
+	fn_get_timestamp_begin
+
+	# Obtendo informações do terminal para dimensionamento das colunas da tabela de resulatados 
+	COL_FROM=$(( $(fn_get_terminal_size) / 4 ))
+	COL_TO=${COL_FROM}
+	#echo "COL_FROM: $COL_FROM e COL_TO: $COL_TO"   #DEBUG
+
+	#apt-get update
+	fn_aptget_update
 	
 	fn_titulo "LIST ALL PACKAGES UPGRADEBLE"
 		
@@ -273,7 +366,8 @@ function fn_get_package_upgradeble_formated(){
 	#LIST=$( apt-get upgrade --assume-no -V | grep "^ " | awk '{print $1"|"$2"|"$4}'| sed 's/[)(]//g')
 	LIST=$(fn_get_all_package_upgradeble)
 	fn_line
-	printf " %-45s | %-25s | %-25s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
+	#printf " %-45s | %-25s | %-25s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
+	printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
 	COUNT=0
 	fn_line
 	for I in $LIST; do
@@ -283,10 +377,13 @@ function fn_get_package_upgradeble_formated(){
 		VER_NEW=$(echo "$I" | awk -F "|" '{print $3}')
 	
 	#echo "$LIST"
-	printf " %-45s | %-25s | %-25s\n" "$PKG" "$VER_OLD" "$VER_NEW"
+	printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "$PKG" "$VER_OLD" "$VER_NEW"
 	done
 	fn_line
+	
 	echo " $COUNT - Packages to update"
+	fn_get_timestamp_end
+
 	fn_line
 	
 	if [ -n "$LIST" ]; then
@@ -301,7 +398,8 @@ function fn_get_urgency_upgradable_data()
 {
 	# Função que coleta dos dados de urgencia a partir dos changelogs dos pacotes e salva a relação em um arquivo temporário
 		
-	apt-get update
+	#apt-get update
+	fn_aptget_update
 	#export LANG="pt_BR.UTF-8"
 	RELACAO=""
 	#for PKG in $(apt-get upgrade -V --assume-no | grep "^ " | awk '{print $1}'); do
@@ -338,14 +436,16 @@ function fn_get_urgency_upgradable()
 {
 	# Função que apresenta os pacotes a serem atualizados com as informações de urgência
 	
-	fn_verify_expired
+	fn_get_timestamp_begin
+
+	fn_verify_expired "cve"
 	RESP="$?"
 	
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
 		echo "[info] Tempo expirado"
 		rm -f "$TMP_DIR"/resume_chagelog
-		fn_get_urgency_upgradable_data && fn_update_time
+		fn_get_urgency_upgradable_data && fn_update_time "cve"
 	fi
 	
 	if [ -e "$TMP_DIR"/resume_chagelog ]; then
@@ -365,7 +465,10 @@ function fn_get_urgency_upgradable()
 			printf " %-10s | %-50s\n" "$URGENCY" "$P"
 		done
 		fn_line
+
 		echo " $COUNT - Packages to update"
+		fn_get_timestamp_end
+
 		fn_line
 		IFS="$IFS_OLD"
 	else
@@ -382,13 +485,15 @@ function fn_get_urgency_upgradable_summary()
 {
 	# Função que apresenta um sumário dos pacotes por urgência
 	
-	fn_verify_expired
+	fn_get_timestamp_begin
+
+	fn_verify_expired "cve"
 	RESP="$?"
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
 		echo "[info] Tempo expirado"
 		rm -f "$TMP_DIR"/resume_chagelog
-		fn_get_urgency_upgradable_data && fn_update_time
+		fn_get_urgency_upgradable_data && fn_update_time "cve"
 	fi
 	
 	if [ -e "$TMP_DIR"/resume_chagelog ]; then
@@ -407,7 +512,10 @@ function fn_get_urgency_upgradable_summary()
 			printf " %03d        | %-50s\n" "$TOTAL_PKG" "Packages in $URGENCY" 
 		done
 		fn_line
+		
 		echo " $COUNT - Packages to update"
+		fn_get_timestamp_end
+
 		fn_line
 		IFS="$IFS_OLD"
 	else
@@ -439,17 +547,20 @@ function fn_get_package_upgradeble_cve_formated(){
 	
 	# Função que gera uma lista formatada de pacotes atualizáveis que possuem CVE associado	
 	
+	fn_get_timestamp_begin
+
 	FORMAT="$1"
 	
-	fn_verify_expired
+	fn_verify_expired "cve"
 	RESP="$?"
 	
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
 		echo "[info] CVE base expired"
-		fn_get_cve_db "$CODENOME" && fn_update_time
+		fn_get_cve_db "$CODENOME" && fn_update_time "cve"
 	fi
-	apt-get update
+	#apt-get update
+	fn_aptget_update
 	
 	fn_titulo "LIST ALL PACKAGES UPGRADEBLE - CVE"
 		
@@ -488,7 +599,10 @@ function fn_get_package_upgradeble_cve_formated(){
 		fi		
 	done
 	fn_line
+
 	echo " $COUNT - Packages to update"
+	fn_get_timestamp_end
+	
 	fn_line
 	
 	if [ "$COUNT" -ne 0  ]; then
@@ -521,7 +635,8 @@ function fn_get_packages_dsa()
 function fn_upgrade_all ()
 {
 	#apt-get update
-	
+	fn_aptget_update
+
 	fn_titulo "UPGRADE ALL PACKAGES"
 
 	# Atualizando todos os pacotes que obtiveram sucesso no download		
@@ -680,15 +795,17 @@ function fn_update_packages_cve_old()
 {
 	
 	
-	fn_verify_expired
+	fn_verify_expired "cve"
 	RESP="$?"
 	
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
 		echo "[info] CVE database expired"
-		fn_get_cve_db && fn_update_time
+		fn_get_cve_db && fn_update_time "cve"
 	fi
-	apt-get update
+	#apt-get update
+	fn_aptget_update
+
 	# Verificando se todos os pacotes atualizaveis possuem um CVE associado
 	
 	fn_titulo "LIST PACKAGES WITH CVE"
@@ -728,15 +845,16 @@ function fn_update_packages_cve ()
 {
 	fn_titulo "UPGRADE PACKAGES WITH CVE"
 	
-	fn_verify_expired
+	fn_verify_expired "cve"
 	RESP="$?"
 	
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
 		echo "[info] Base de CVE expirada"
-		fn_get_cve_db && fn_update_time
+		fn_get_cve_db && fn_update_time "cve"
 	fi
 	#apt-get update
+	#fn_aptget_update
 
 	# Atualizando todos os pacotes que obtiveram sucesso no download		
 	PKG_COLLECTION=""
