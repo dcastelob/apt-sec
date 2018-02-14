@@ -200,9 +200,9 @@ function fn_generate_apt_log()
 	PKG_COLLECTION="$4"
 	STATUS="$5"
 	
-	IFS=$"\n"
+	IFS=$'\n'
 
-	for I in $PKG_COLLECTION; do
+	for I in "$PKG_COLLECTION"; do
 		#echo ${I}
 		echo "$DATE|$DATE_START_EVENT|$DATE_END_EVENT|$STATUS|${I}" >> "$APT_SEC_LOG"
 	done
