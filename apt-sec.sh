@@ -1732,4 +1732,4 @@ function fn_main()
 
 # inicio do script
 fn_requiriments
-fn_main "$1"
+fn_main "$@"
