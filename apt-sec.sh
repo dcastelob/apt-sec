@@ -198,10 +198,11 @@ function fn_generate_apt_log()
 	DATE_START_EVENT="$2"
 	DATE_END_EVENT="$3"
 	PKG_COLLECTION="$4"
-	ROLLBACK_ENABLE="$5"
+	STATUS="$5"
+	
 
 	for I in $PKG_COLLECTION; do
-		echo -e "$DATE|$DATE_START_EVENT|$DATE_END_EVENT|$ROLLBACK_ENABLE|$I" >> "$APT_SEC_LOG"
+		echo -e "$DATE|$DATE_START_EVENT|$DATE_END_EVENT|$STATUS|${I}" >> "$APT_SEC_LOG"
 	done
 }
 
