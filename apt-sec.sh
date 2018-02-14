@@ -752,16 +752,17 @@ function fn_list_urgency_upgradable_summary()
 	fn_msg "[INFO] List all packages and depenedencies. It may take a few minutes."
 
 	# Verificando se o tempo de consulta do CVE expirou
-	fn_verify_expired "cve"
-	RESP="$?"
-	if [ "$RESP" -eq 0  ]; then
+	#fn_verify_expired "cve"
+	#RESP="$?"
+	#if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
-		fn_msg "[INFO] Time out for CVE. Get data, it may take a few minutes."
-		rm -f "$CHANGE_LOGS_DB_FILE"
+	#	fn_msg "[INFO] Time out for CVE. Get data, it may take a few minutes."
+	#	rm -f "$CHANGE_LOGS_DB_FILE"
 
-		# Realizando o download dos changelogs dos pacotes para extração da urgencia.
-		fn_get_urgency_upgradable_data && fn_update_time "cve"
-	fi
+
+	# Realizando o download dos changelogs dos pacotes para extração da urgencia.
+	fn_get_urgency_upgradable_data && fn_update_time "cve"
+	#fi
 
 	if [ -e "$CHANGE_LOGS_DB_FILE" ]; then
 
