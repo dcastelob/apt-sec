@@ -16,7 +16,7 @@
 # VARIAVEIS DE CONTROLE
 #############################################################################
 #export LANG=en_US.UTF-8
-export VERBOSE=yes
+export VERBOSE=no
 
 export FILE_CONTROL="/tmp/apt-sec.ctrl"
 export EXPIRED_CVE="600"
@@ -44,13 +44,13 @@ function fn_requiriments()
 	PKG=""
 	which psql &> /dev/null
 	if [ "$?" -ne 0 ];then
-		msg "[FAIL] Command 'psql' not found."
+		fn_msg "[FAIL] Command 'psql' not found."
 		PKG="${PKG} postgresql-client"
 		COUNT=$(($COUNT+1))
 	fi
 	which lsb_release &> /dev/null
 	if [ "$?" -ne 0 ];then
-		msg "[FAIL] Command 'lsb_release' not found."
+		fn_msg "[FAIL] Command 'lsb_release' not found."
 		PKG="${PKG} lsb-release"
 		COUNT=$(($COUNT+1))
 	else
@@ -60,32 +60,32 @@ function fn_requiriments()
 
 	which column &> /dev/null
 	if [ "$?" -ne 0 ];then
-		msg "[FAIL] Command 'column' not found."
+		fn_msg "[FAIL] Command 'column' not found."
 		PKG="${PKG} bsdmainutils"
 		COUNT=$(($COUNT+1))
 	fi
 
 	which aptitude &> /dev/null
 	if [ "$?" -ne 0 ];then
-		msg "[FAIL] Command 'aptitude' not found."
+		fn_msg "[FAIL] Command 'aptitude' not found."
 		PKG="${PKG} aptitude"
 		COUNT=$(($COUNT+1))
 	fi
 
 	if [ "$COUNT" -ne 0 ];then
-		msg "[INFO] Verify requiriments..."
-		msg "[FAIL] Packages pendents"
-		msg "apt-get update && apt-get -y install $PKG"
+		fn_msg "[INFO] Verify requiriments..."
+		fn_msg "[FAIL] Packages pendents"
+		fn_msg "apt-get update && apt-get -y install $PKG"
 		exit 1
 	fi
 
 }
 
 
-function verifyRepeat()
+function fn_verifyRepeat()
 {
 	# Função que verifica se um item ja existe na coleção
-	# Sintaxe: verifyRepeat COLECAO ITEM
+	# Sintaxe: fn_verifyRepeat COLECAO ITEM
 
 	COLLECTION="$1"
 	ITEM="$2"
@@ -108,14 +108,16 @@ function fn_isRoot()
 
 	ID=$(id -u)
 	if [ "$ID" -ne 0 ]; then
-		echo "Permission Denied to execute:"
-		echo "Use: sudo $0 $@"
+		fn_msg "[ERROR] Permission denied!"
+		echo " Usage: sudo $0 $@"
 		exit 99
 	fi
 }
 
-function msg()
+function fn_msg()
 {
+	# Função para apresentação de notificações no terminal de forma colorida
+
 	TIPO=$(echo "$1"| grep -oiE "FAIL|ERROR|INFO")
 	#echo "${TIPO}"
 	case $TIPO in
@@ -145,10 +147,10 @@ function fn_line()
 
 function fn_titulo()
 {
-	MSG="$1"
+	fn_msg="$1"
 	fn_line
 	#echo
-	echo " :: $MSG :: "
+	echo " :: $fn_msg :: "
 	#echo
 	fn_line
 }
@@ -263,9 +265,9 @@ function fn_aptget_update()
 
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
-		msg "[INFO] apt-get update time expired..."
+		fn_msg "[INFO] apt-get update time expired..."
 		VERBOSE=$(echo "$VERBOSE" | tr "a-z" "A-Z")
-		msg "[INFO] Update apt base (apt-get update) - Verbose Mode: $VERBOSE"
+		fn_msg "[INFO] Update apt base (apt-get update) - Verbose Mode: $VERBOSE"
 		case "$VERBOSE" in
 			YES|1|TRUE)
 				apt-get update
@@ -380,7 +382,7 @@ function fn_get_all_package_upgradeble()
 		LIST_DEP=$(apt-get install "$PKG" -V --assume-no | egrep -A1000 "The following packages|Os pacotes a seguir"| grep "^ "| grep -v " ${PKG} " | awk '{print $1"|"$2"|"$4"|IS-DEPENDENCY"}' | sed 's/[)(]//g')
 		#echo "Lista DEP: $LIST_DEP"
 		
-		verifyRepeat "$ALL_PKGS" "$PKG"
+		fn_verifyRepeat "$ALL_PKGS" "$PKG"
 		if [ "$?" -eq 1 ]; then
 			LIST_DEP=$(echo "${LIST_DEP}" | egrep -v "^${PKG}\|")
 			PKG_COLLECTION=$(echo -e "${PKG_COLLECTION}\n${LIST_DEP}")	
@@ -398,7 +400,7 @@ function fn_list_package_upgradeble_formated(){
 	# Função que gera uma lista formatada de pacotes atualizáveis
 
 	fn_get_timestamp_begin
-	msg "[INFO] List all packages and depenedencies. It may take a few minutes."
+	fn_msg "[INFO] List all packages and depenedencies. It may take a few minutes."
 
 	# Obtendo informações do terminal para dimensionamento das colunas da tabela de resulatados
 	COL_FROM=$(( $(fn_get_terminal_size) / 4 ))
@@ -491,7 +493,7 @@ function fn_get_urgency_upgradable()
 
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
-		msg "[INFO] Time out. CVE expired. Get data now"
+		fn_msg "[INFO] Time out. CVE expired. Get data now"
 		rm -f "$TMP_DIR"/resume_chagelog
 
 		# obtendo dados de changelog para extração da urgencia
@@ -536,14 +538,14 @@ function fn_list_urgency_upgradable_summary()
 	# Função que apresenta um sumário dos pacotes por urgência
 
 	fn_get_timestamp_begin
-	msg "[INFO] List all packages and depenedencies. It may take a few minutes."
+	fn_msg "[INFO] List all packages and depenedencies. It may take a few minutes."
 
 	# Verificando se o tempo de consulta do CVE expirou
 	fn_verify_expired "cve"
 	RESP="$?"
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
-		msg "[INFO] Time for VCE expire. Get data, it may take a few minutes."
+		fn_msg "[INFO] Time for VCE expire. Get data, it may take a few minutes."
 		rm -f "$TMP_DIR"/resume_chagelog
 
 		# Realizando o download dos changelogs dos pacotes para extração da urgencia.
@@ -586,7 +588,7 @@ function fn_get_cve_db()
 {
 	# Função que coleta a base de CVEs atualizada e guarda localmente, obedecendo o tempo de expiração.
 	RELEASE="$1"
-	msg "[INFO] Collect CVE database, wait..."
+	fn_msg "[INFO] Collect CVE database, wait..."
 
 	if [ -n "$RELEASE" ];then
 		export PGPASSWORD=udd-mirror && psql --host=udd-mirror.debian.net --user=udd-mirror udd -c "select s1.issue, s1.source, s1.fixed_version, s1.urgency, s1.release, s1.status, s2.description from public.security_issues_releases as s1 inner join public.security_issues as s2 on (s1.issue = s2.issue) where s1.release='$RELEASE' and s1.status='resolved' and s1.issue like 'CVE%' order by s1.issue desc limit $CVE_DB_LIMITE;" > "$CVE_DB_FILE"
@@ -611,14 +613,14 @@ function fn_list_package_upgradeble_cve_formated()
 
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
-		msg "[INFO] CVE base expired"
+		fn_msg "[INFO] CVE base expired"
 
 		# obtendo dados do UDD
 		fn_get_cve_db "$CODENOME" && fn_update_time "cve"
 	fi
 
 	if [ ! -e "$CVE_DB_FILE" ]; then
-		msg "[INFO] CVE file not found"
+		fn_msg "[INFO] CVE file not found"
 
 		# obtendo dados do UDD
 		fn_get_cve_db "$CODENOME" && fn_update_time "cve"
@@ -707,7 +709,7 @@ function fn_upgrade_all ()
 	PKG_COLLECTION_FAIL=""
 	PKG_TO_UPDATE=""
 	PKG_TO_UPDATE_FAIL=""
-	PKG_TO_UPDATE_FAIL_MSG=""
+	PKG_TO_UPDATE_FAIL_fn_msg=""
 
 
 	fn_list_package_upgradeble_formated
@@ -760,7 +762,7 @@ function fn_upgrade_all ()
 		else
 			# pacotes que não foi possivel realizar o download de pacotes atualmente instalados para possível rollback
 			PKG_TO_UPDATE_FAIL="${PKG_TO_UPDATE_FAIL} ${PKG}"
-			PKG_TO_UPDATE_FAIL_MSG="${PKG_TO_UPDATE_FAIL_MSG} ${PKG}=${VER_OLD}"
+			PKG_TO_UPDATE_FAIL_fn_msg="${PKG_TO_UPDATE_FAIL_fn_msg} ${PKG}=${VER_OLD}"
 			PKG_COLLECTION_FAIL=$(echo -e "${PKG_COLLECTION_FAIL}\n${ITEM}")
 		fi
 	done
@@ -771,7 +773,7 @@ function fn_upgrade_all ()
 	if [ -n "$PKG_TO_UPDATE_FAIL" ];then
 		echo
 		echo "Packages not found actually version to garant rollback!"
-		echo "$PKG_TO_UPDATE_FAIL_MSG"
+		echo "$PKG_TO_UPDATE_FAIL_fn_msg"
 		echo
 
 		read -p "[QUESTION] Exitem pacotes que não podemos garantir o rollback. Deseja prosseguir mesmo assim? (y/n/a) [a]: " RESP
@@ -863,7 +865,7 @@ function fn_update_packages_cve_old()
 
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
-		msg "[INFO] CVE database expired"
+		fn_msg "[INFO] CVE database expired"
 		fn_get_cve_db && fn_update_time "cve"
 	fi
 	#apt-get update
@@ -913,7 +915,7 @@ function fn_update_packages_cve ()
 
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
-		msg "[INFO] CVE database expired"
+		fn_msg "[INFO] CVE database expired"
 		fn_get_cve_db && fn_update_time "cve"
 	fi
 	#apt-get update
@@ -924,7 +926,7 @@ function fn_update_packages_cve ()
 	PKG_COLLECTION_FAIL=""
 	PKG_TO_UPDATE=""
 	PKG_TO_UPDATE_FAIL=""
-	PKG_TO_UPDATE_FAIL_MSG=""
+	PKG_TO_UPDATE_FAIL_fn_msg=""
 
 
 	#fn_list_package_upgradeble_formated
@@ -981,7 +983,7 @@ function fn_update_packages_cve ()
 			else
 				# pacotes que não foi possivel realizar o download de pacotes atualmente instalados para possível rollback
 				PKG_TO_UPDATE_FAIL="${PKG_TO_UPDATE_FAIL} ${PKG}"
-				PKG_TO_UPDATE_FAIL_MSG="${PKG_TO_UPDATE_FAIL_MSG} ${PKG}=${VER_OLD}"
+				PKG_TO_UPDATE_FAIL_fn_msg="${PKG_TO_UPDATE_FAIL_fn_msg} ${PKG}=${VER_OLD}"
 				PKG_COLLECTION_FAIL=$(echo -e "${PKG_COLLECTION_FAIL}\n${ITEM}")
 			fi
 		fi
@@ -994,7 +996,7 @@ function fn_update_packages_cve ()
 	if [ -n "$PKG_TO_UPDATE_FAIL" ];then
 		echo
 		echo "Packages not found actually version to garant rollback!"
-		echo "$PKG_TO_UPDATE_FAIL_MSG"
+		echo "$PKG_TO_UPDATE_FAIL_fn_msg"
 		echo
 
 		read -p "[QUESTION] Exitem pacotes que não podemos garantir o rollback. Deseja prosseguir mesmo assim? (y/n/a) [a]: " RESP
@@ -1112,17 +1114,17 @@ function fn_download_package_version()
 		if [ -n "$LOCALIZA" ];then
 			#cp "${PKG}_${VERSION}_*.deb" "$ROLLBACK_PKG_DIR/"
 			cp "/var/cache/apt/archive/${TMP_PKG}_${TMP_OLD_VER}_*.deb" "$ROLLBACK_PKG_DIR/"
-			msg "[INFO] Pacote: ${TMP_PKG}_${TMP_OLD_VER} (existente no archives) foi arquivado para rollback em: $ROLLBACK_PKG_DIR"
+			fn_msg "[INFO] Pacote: ${TMP_PKG}_${TMP_OLD_VER} (existente no archives) foi arquivado para rollback em: $ROLLBACK_PKG_DIR"
 		else
 			#apt-get download "$PKG"="$VERSION" 2> /dev/null
 			apt-get download "${TMP_PKG}"="${TMP_OLD_VER}" 2> /dev/null
 			RESULT="$?"
 			#echo "DOWNLOAD RESULT: $RESULT"   #DEBUG
 			if [ "$RESULT" -eq 0 ];then
-				msg "[INFO] Pacote: ${TMP_PKG}_${TMP_OLD_VER} baixado e arquivado para rollback em: $ROLLBACK_PKG_DIR"
+				fn_msg "[INFO] Pacote: ${TMP_PKG}_${TMP_OLD_VER} baixado e arquivado para rollback em: $ROLLBACK_PKG_DIR"
 				#return 0
 			else
-				msg "[ERROR] Problemas ao baixar pacote: ${TMP_PKG}_${TMP_OLD_VER} para rollback em: $ROLLBACK_PKG_DIR"
+				fn_msg "[ERROR] Problemas ao baixar pacote: ${TMP_PKG}_${TMP_OLD_VER} para rollback em: $ROLLBACK_PKG_DIR"
 				#return 1
 			fi
 		fi
@@ -1224,7 +1226,7 @@ function fn_main()
 	OPT="$1"
 
 	# Verifca se é root
-	fn_isRoot
+	fn_isRoot "$@"
 
 
 	case $OPT in
@@ -1257,9 +1259,9 @@ function fn_main()
 			#fn_get_all_package_upgradeble
 			
 			#cat /tmp/resume_chagelog
-			msg "[ERROR] teste" 
-			msg "[FAIL] teste" 
-			msg "[INFO] teste" 
+			fn_msg "[ERROR] teste" 
+			fn_msg "[FAIL] teste" 
+			fn_msg "[INFO] teste" 
 			;;
 
 		-s|--summary)
