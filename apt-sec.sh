@@ -885,7 +885,7 @@ function fn_list_package_upgradeble_cve_formated()
 # FUNCOES DE UPDATE
 ###############################################################################
 
-function fn_upgrade_from_list ()
+function fn_upgrade_from_list_OLD ()
 {
 	
 	# Função para atualização de pacotes envados como parâmetros
@@ -980,19 +980,21 @@ function fn_upgrade_from_list ()
 				## Juntando todos os
 				#ALL_COLLECTION=$(echo -e "${PKG_COLLECTION}\n${PKG_COLLECTION_FAIL}")
 
-				for ITEM in $PKG_COLLECTION; do
-					PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
-					VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
-					VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
-					echo "apt-get install -y "$PKG""
-					apt-get install -y "$PKG"
-
-					RESP="$?"
-					if [ "$RESP" -eq 0 ]; then
-						OPERACAO_DATA_FINAL=$(date "+%x %T")
-						fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA_INICIO" "$OPERACAO_DATA_FINAL" "$ITEM" "ROLLBACK-ON"
-					fi
-				done
+				# ABORDAGEM DE INSTALAÇÂO DE PACOTE A PACOTE
+#				for ITEM in $PKG_COLLECTION; do
+#					PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
+#					VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
+#					VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
+#					echo "apt-get install -y "$PKG""
+#					apt-get install -y "$PKG"
+#
+#					RESP="$?"
+#					if [ "$RESP" -eq 0 ]; then
+#						OPERACAO_DATA_FINAL=$(date "+%x %T")
+#						fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA_INICIO" "$OPERACAO_DATA_FINAL" "$ITEM" "ROLLBACK-ON"
+#					fi
+#				done
+				
 
 				for ITEM in $PKG_COLLECTION_FAIL; do
 					PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
@@ -1006,6 +1008,17 @@ function fn_upgrade_from_list ()
 						fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA_INICIO" "$OPERACAO_DATA_FINAL" "$ITEM" "ROLLBACK-OFF"
 					fi
 				done
+
+
+				# ABORDAGEM TODOS OS PACOTES NUMA ÚNICA TRANSACAO
+				
+				PKG=$(echo "$PKG_COLLECTION" | awk -F "|" '{print $1}'| tr "\n" " ")
+				apt-get install -y "$PKG"
+				RESP="$?"
+				if [ "$RESP" -eq 0 ]; then
+					OPERACAO_DATA_FINAL=$(date "+%x %T")
+					fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA_INICIO" "$OPERACAO_DATA_FINAL" "$ITEM" "ROLLBACK-ON"
+				fi
 
 				;;
 
@@ -1050,6 +1063,80 @@ function fn_upgrade_from_list ()
 		# liberando o cache e forçando o sistema a atualizar os dados de consultas
 		fn_release_cache
 	fi
+}
+
+function fn_upgrade_from_list ()
+{
+	
+	# Função para atualização de pacotes envados como parâmetros
+
+	#fn_aptget_update
+	PKG_LIST="$1"
+
+	fn_titulo "UPGRADE PACKAGES SELECTED FROM LIST"
+
+	# Atualizando todos os pacotes que obtiveram sucesso no download
+	PKG_COLLECTION=""
+	PKG_COLLECTION_FAIL=""
+	PKG_TO_UPDATE=""
+	PKG_TO_UPDATE_FAIL=""
+	PKG_TO_UPDATE_FAIL_fn_msg=""
+
+
+	if [ -n "$PKG_LIST" ];then
+		echo
+		read -p "[QUESTION] Secure upgrade all packages from list? (y/n) [n]: " RESP
+	    RESP=$(echo "${RESP:-"N"}")
+    	RESP=$(echo $RESP| tr [a-z] [A-Z])
+
+    	echo
+    	case $RESP in
+			Y|S)
+				# sim
+				fn_msg "[INFO] Inittiate download for actually version for rollback operations..."
+				;;
+
+			N)
+				# não
+				fn_msg "[FAIL] Operation aborted!"
+				exit 1
+				;;
+
+			*)
+				fn_msg "[ERROR] Invalid option"
+				fn_msg "[ERROR] Operation aborted!"
+				exit 1
+				;;
+		esac
+	else
+		fn_msg "[ERROR] No packages to update"
+		exit 0
+
+	fi
+
+	# demarcando o inicio da atividade para o LOG
+	OPERACAO_TIMESTAMP=$(date +%s)
+	OPERACAO_DATA_INICIO=$(date "+%x %T")
+
+	# ABORDAGEM TODOS OS PACOTES NUMA ÚNICA TRANSACAO
+	
+	for ITEM in "$PKG_LIST"; do
+		PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
+		VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
+		VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
+		
+		apt-get install -y "$PKG"
+		
+		RESP="$?"
+		if [ "$RESP" -eq 0 ]; then
+			OPERACAO_DATA_FINAL=$(date "+%x %T")
+			fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA_INICIO" "$OPERACAO_DATA_FINAL" "$ITEM" "ROLLBACK-OFF"
+		fi
+	done
+
+	
+	# liberando o cache e forçando o sistema a atualizar os dados de consultas
+	fn_release_cache	
 }
 
 
