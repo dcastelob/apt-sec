@@ -168,13 +168,13 @@ function fn_usage()
 	echo "Options:"
 	echo " -h|--help        	 - Help commands"
 	echo " -l|--list        	 - List all packages upgradable"
-	echo " -s|--summary     	 - List summary for packages upgradable urgency based"
-	echo " -u|--urgency     	 - List all packages upgradable with urgency"
+	echo " -s|--summary-list   	 - List summary for packages upgradable urgency based"
+	echo " -u|--urgency-list   	 - List all packages upgradable with urgency"
 	echo " -c|--cve-list    	 - List only packages with CVE associated"
-	echo " -a|--all         	 - Secure update for all packages upgradable"
+	echo " -a|--all-update     	 - Secure update for all packages upgradable"
 	echo " -C|--cve-update  	 - Secure update only packages with CVE associated detailed"
-	echo " -R|--rollback    	 - Execute rollback old packages"
-	echo " -U|--urgency-update   - Execute rollback old packages"
+	echo " -U|--urgency-update	 - Secure update only packages urgency filter"
+	echo " -R|--rollback    	 - Execute rollback old packages"	
 	echo " --renew-cache    	 - Renew cache for temp files"
 	
 	echo
@@ -543,7 +543,7 @@ function fn_get_urgency_upgradable_data()
 }
 
 
-function fn_get_urgency_upgradable()
+function fn_list_urgency_upgradable()
 {
 	# Função que apresenta os pacotes a serem atualizados com as informações de urgência
 
@@ -588,7 +588,7 @@ function fn_get_urgency_upgradable()
 		fn_get_urgency_upgradable_data
 		RESP="$?"
 		if [ "$RESP" -eq 0 ];then
-			fn_get_urgency_upgradable
+			fn_list_urgency_upgradable
 		fi
 	fi
 }
@@ -1291,7 +1291,7 @@ function fn_menu_select_upgrade_by_urgency()
 				;;
 			*)
 				OPT=$(echo "$OPT" | cut -d "|" -f1 | sed "s/ //g")
-				PKG_COLLECTION=$(cat "$CHANGE_LOGS_DB_FILE" | grep "$OPT"| cut -d" " -f1 | tr "\n" "|" )
+				PKG_COLLECTION=$(cat "$CHANGE_LOGS_DB_FILE" | grep "$OPT"| cut -d" " -f1 | tr "\n" "|" | sed "s/|$//g" )
 				echo "Colecao: $PKG_COLLECTION"
 				fn_list_package_for_upgradeble_by_urgency "$PKG_COLLECTION" "$OPT"
 				#fn_get_package_upgradeble_from_list "$PKG_COLLECTION"
@@ -1485,20 +1485,18 @@ function fn_main()
 	fn_isRoot "$@"
 
 
-	case $OPT in
-		-a|--all)
-			fn_upgrade_all
-			;;
-
+	case "$OPT" in
+		
 		-c|--cve-list)
 			# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
 			fn_list_package_upgradeble_cve_formated detail
 			;;
-
-		-C|--cve-update)
-			# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
-			fn_update_packages_cve
+		-u|--urgency-list)
+			fn_list_urgency_upgradable
 			;;
+		-s|--summary-list)
+			fn_list_urgency_upgradable_summary
+			;;		
 
 		-l|--list)
 			fn_list_package_upgradeble_formated
@@ -1510,13 +1508,15 @@ function fn_main()
 			fn_list_package_upgradeble_cve_formated
 			;;
 
-		-s|--summary)
-			fn_list_urgency_upgradable_summary
+		-a|--all-update)
+			fn_upgrade_all
 			;;
 
-		-u|--urgency)
-			fn_get_urgency_upgradable
+		-C|--cve-update)
+			# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
+			fn_update_packages_cve
 			;;
+
 		-U|--urgency-update)
 			fn_menu_select_upgrade_by_urgency
 			;;	
