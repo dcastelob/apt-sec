@@ -637,6 +637,11 @@ function fn_list_package_upgradeble_cve_formated()
 	fn_titulo "LIST ALL PACKAGES UPGRADEBLE - CVE"
 	
 	LIST=$(fn_get_all_package_upgradeble)
+
+	if [ -z "$LIST" ];then
+		fn_msg "[INFO] Packges from CVE file not found"
+		exit 0
+	fi
 	COUNT=0
 
 	printf " %-16s | %-16s | %-25s | %-10s %s\n" "CVE              " "SEVERITY" "PACKAGE" "VERSION"
@@ -1198,11 +1203,11 @@ function fn_menu_rollback()
 	fn_titulo "ROLLBACK PACKAGES"
 	
 	LISTA=$(tac "$APT_SEC_LOG" 2> /dev/null| grep -v "^$"| grep "ROLLBACK-ON" | awk -F "|" '{print $1" "$2}' | uniq -c  | awk '{print $2" | "$3" " $4" | "$1 " Package(s)"}' | head -n "$ROLLBACK_LIMITE" )
-	
+
 	if [ ! -e "$APT_SEC_LOG" -o -z "$LISTA" ];then
 		#fn_msg "[ERROR] Log file: $APT_SEC_LOG not valid register found!"
 		#fn_msg "[INFO] NOT ROLLBACK NEEDED!"
-		fn_msg "[INFO] NOT ROLLBACK REGISTER TO PROCESS!"
+		fn_msg "[INFO] NOT ROLLBACK (ON) REGISTER TO PROCESS!"
 		exit 2
 	fi
 
