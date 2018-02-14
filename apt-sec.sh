@@ -1256,7 +1256,8 @@ function fn_main()
 			;;
 
 		-t)
-			#echo "fn_get_all_package_upgradeble"
+			echo "fn_get_urgency_upgradable_data"
+			fn_get_urgency_upgradable_data
 			#fn_get_all_package_upgradeble
 
 
@@ -1265,9 +1266,9 @@ function fn_main()
 			#fn_get_all_package_upgradeble
 			
 			#cat /tmp/resume_chagelog
-			fn_msg "[ERROR] teste" 
-			fn_msg "[FAIL] teste" 
-			fn_msg "[INFO] teste" 
+			#fn_msg "[ERROR] teste" 
+			#fn_msg "[FAIL] teste" 
+			#fn_msg "[INFO] teste" 
 			;;
 
 		-s|--summary)
