@@ -660,9 +660,9 @@ function fn_list_package_for_upgradeble_by_urgency()
 		COUNT=$(($COUNT+1))
 		#PKG=$(echo "$I" | awk -F "|" '{print $1}')
 		PKG=$(echo "$I")
-		VER_OLD=$(echo "$I" | awk -F "|" '{print $2}')
-		VER_NEW=$(echo "$I" | awk -F "|" '{print $3}')
-		OPERACAO=$(echo "$I" | awk -F "|" '{print $4}')
+		VER_OLD=$(apt-cache policy "$I" | grep -i "Installed" |awk '{print $3}')
+		VER_NEW=$(apt-cache policy "$I" | grep -i "Candidate" |awk '{print $3}')
+		OPERACAO=$(echo "UPGRADE - $OPT")
 		PKG="$PKG ($OPERACAO)"
 
 		#echo "$I"
