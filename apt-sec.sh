@@ -417,8 +417,8 @@ function fn_get_package_upgradeble_from_list()
 	echo "ORIGINAL -"
 	apt-get install ${PKG_LIST} --assume-no -V 2>/dev/null #| grep "^ " | awk '{print $1"|"$2"|"$4"|UPGRADABLE"}'| sed 's/[)(]//g'
 	LIST=$( apt-get install ${PKG_LIST} --assume-no -V 2>/dev/null| grep "^ "|sed "s/Depends://g" |grep -viE "Recommends:|Reportbug"| awk '{print $1"|"$2"|"$4"|UPGRADABLE"}'| sed 's/[)(]//g')
-	
-	echo "INT LIST: $LIST"
+	exit 0
+	#echo "INT LIST: $LIST"
 	# Lista apenas de todos os nomes de pacotes (utilizados para evitar repetições)
 	ALL_PKGS=$(echo "$LIST"|awk -F"|" '{print $1}')
 
