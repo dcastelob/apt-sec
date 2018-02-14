@@ -194,6 +194,27 @@ function fn_generate_apt_log()
 	done
 }
 
+function fn_update_apt_log()
+{
+	# Função acessório que atualiza o log das operações de ROLLBACK EFETIVADAS com sucesso
+
+	LOG_LINE="$1"
+	TIME_STAMP="$2"
+	NEW_DATE_EVENT="$3"
+
+	DATE=$(echo "$LOG_LINE"| awk -F "|" {print $1})	
+	DATE_EVENT=$(echo "$LOG_LINE"| awk -F "|" {print $2})
+	STATUS_ROLLBACK=$(echo "$LOG_LINE"| awk -F "|" {print $3})
+	PKG=$(echo "$LOG_LINE"| awk -F "|" {print $4})
+	OLD_VER=$(echo "$LOG_LINE"| awk -F "|" {print $5})
+	NEW_VER=$(echo "$LOG_LINE"| awk -F "|" {print $6})
+	
+	UPDATE_LOG_LINE="$DATE|$DATE_EVENT|REVERTED|$PKG|$OLD_VER|$NEW_VER|$TIME_STAMP|$NEW_DATE_EVENT"
+
+	sed -i "s/$LOG_LINE/$UPDATE_LOG_LINE/" "$APT_SEC_LOG"
+	
+}
+
 function fn_get_timestamp_begin()
 {
 	export TIMESTAMP_BEGIN=$(date +%s)
@@ -1204,10 +1225,13 @@ function fn_execute_rollback()
 			# caso não encontre o pacote nos repositórios, buscar no cache local
 			if [ $? -ne 0 ];then
 				fn_msg "[INFO] install package ${PKG} from repo local ($ROLLBACK_PKG_DIR)"
-				dpkg -i "${ROLLBACK_PKG_DIR}/${PKG}"
+				dpkg -i "${ROLLBACK_PKG_DIR}/${PKG}" && fn_update_apt_log "$PKG_COLLECTION" "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA"
+			else
+				# atualizando a linha de log de operações
+				fn_update_apt_log "$PKG_COLLECTION" "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA"
 			fi 
 
-			fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "${PKG}|${VER_NEW}|${VER_OLD}" "REVERTED"
+			#fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "${PKG}|${VER_NEW}|${VER_OLD}" "REVERTED"
 
 		done
 
