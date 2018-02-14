@@ -1604,9 +1604,9 @@ function fn_execute_rollback()
 
 	for P in $PKG_COLLECTION; do
 
-		PKG=$(echo "$P" | awk -F"|" '{print $4}' )
-		VER_OLD=$(echo "$P" | awk -F"|" '{print $5}' )
-		VER_NEW=$(echo "$P" | awk -F"|" '{print $6}' )
+		PKG=$(echo "$P" | awk -F"|" '{print $5}' )
+		VER_OLD=$(echo "$P" | awk -F"|" '{print $6}' )
+		VER_NEW=$(echo "$P" | awk -F"|" '{print $7}' )
 
 		PKG_TO_PURGE="${PKG_TO_PURGE} ${PKG}"
 		PKG_TO_REINSTALL="${PKG_TO_REINSTALL}  ${PKG}=${VER_NEW}"
@@ -1625,9 +1625,9 @@ function fn_execute_rollback()
 		# Removendo os pacotes após aprovação (YES)
 		for P in $PKG_COLLECTION; do
 
-			PKG=$(echo "$P" | awk -F"|" '{print $4}' )
-			VER_OLD=$(echo "$P" | awk -F"|" '{print $5}' )
-			VER_NEW=$(echo "$P" | awk -F"|" '{print $6}' )
+			PKG=$(echo "$P" | awk -F"|" '{print $5}' )
+			VER_OLD=$(echo "$P" | awk -F"|" '{print $6}' )
+			VER_NEW=$(echo "$P" | awk -F"|" '{print $7}' )
 
 			echo "apt-get -y purge $PKG"
 			apt-get -y purge "$PKG" 
