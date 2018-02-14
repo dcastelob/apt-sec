@@ -649,7 +649,8 @@ function fn_list_package_for_upgradeble_by_urgency()
 
 	fn_titulo "LIST PACKAGES TO UPGRADE BY URGENCY = $OPT"
 
-	LIST=$(fn_get_package_upgradeble_from_list "$PKG_LIST")
+	#LIST=$(fn_get_package_upgradeble_from_list "$PKG_LIST")
+	LIST="$PKG_LIST"
 	fn_line
 	#printf " %-45s | %-25s | %-25s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
 	printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
@@ -657,7 +658,8 @@ function fn_list_package_for_upgradeble_by_urgency()
 	fn_line
 	for I in $LIST; do
 		COUNT=$(($COUNT+1))
-		PKG=$(echo "$I" | awk -F "|" '{print $1}')
+		#PKG=$(echo "$I" | awk -F "|" '{print $1}')
+		PKG=$(echo "$I")
 		VER_OLD=$(echo "$I" | awk -F "|" '{print $2}')
 		VER_NEW=$(echo "$I" | awk -F "|" '{print $3}')
 		OPERACAO=$(echo "$I" | awk -F "|" '{print $4}')
