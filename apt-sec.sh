@@ -639,7 +639,7 @@ function fn_list_package_upgradeble_cve_formated()
 	LIST=$(fn_get_all_package_upgradeble)
 	COUNT=0
 
-	printf " %-10s | %-16s | %-25s | %-10s %s\n" "CVE          " "SEVERITY" "PACKAGE" "VERSION"
+	printf " %-14s | %-16s | %-25s | %-10s %s\n" "CVE              " "SEVERITY" "PACKAGE" "VERSION"
 	fn_line
 
 	for I in $LIST; do
@@ -1291,6 +1291,7 @@ function fn_main()
 			;;
 
 		*)
+			fn_msg "[ERROR] option $OPT not found!"
 			fn_usage
 			;;
 	esac
