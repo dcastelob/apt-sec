@@ -181,6 +181,12 @@ function fn_usage()
 
 }
 
+function fn_release_cache()
+{
+	fn_download_cve_db
+	rm -f "$PKG_DB_FILE" && fn_msg "[INFO] Clear cache local for packages..."
+	rm -f "$CHANGE_LOGS_DB_FILE" && fn_msg "[INFO] Clear cache local for changelogs..."
+}
 
 function fn_generate_apt_log()
 {
@@ -1027,10 +1033,13 @@ function fn_upgrade_from_list ()
 			PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
 			VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
 			VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
-			echo "apt-get install "$PKG""
+			#echo "apt-get install "$PKG""
+			echo "apt-get install -y "$PKG""
 			RESP="$?"
 			if [ "$RESP" -eq 0 ]; then
 				fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "$ITEM" "ROLLBACK-ON"
+				# liberando o cache e forçando o sistema a atualizar os dados de consultas
+				fn_release_cache
 			fi
 		done
 	fi
@@ -1696,9 +1705,7 @@ function fn_main()
 			fn_menu_rollback
 			;;
 		--renew-cache)
-			fn_download_cve_db
-			rm -f "$PKG_DB_FILE" && fn_msg "[INFO] Clear cache local for packages..."
-			rm -f "$CHANGE_LOGS_DB_FILE" && fn_msg "[INFO] Clear cache local for changelogs..."
+			fn_release_cache
 			;;	
 
 		-h|--help)
