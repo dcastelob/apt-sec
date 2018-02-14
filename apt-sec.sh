@@ -172,6 +172,8 @@ function fn_usage()
 	echo " -a|--all          - Secure update for all packages upgradable"
 	echo " -C|--cve-update   - Secure update only packages with CVE associated detailed"
 	echo " -R|--rollback     - Execute rollback old packages"
+	echo " --renew-cache     - Renew cache for temp files"
+	
 	echo
 
 }
@@ -545,7 +547,7 @@ function fn_list_urgency_upgradable_summary()
 	RESP="$?"
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
-		fn_msg "[INFO] Time for VCE expire. Get data, it may take a few minutes."
+		fn_msg "[INFO] Time out for CVE. Get data, it may take a few minutes."
 		rm -f "$TMP_DIR"/resume_chagelog
 
 		# Realizando o download dos changelogs dos pacotes para extração da urgencia.
@@ -584,7 +586,7 @@ function fn_list_urgency_upgradable_summary()
 }
 
 
-function fn_get_cve_db()
+function fn_download_cve_db()
 {
 	# Função que coleta a base de CVEs atualizada e guarda localmente, obedecendo o tempo de expiração.
 	RELEASE="$1"
@@ -616,14 +618,14 @@ function fn_list_package_upgradeble_cve_formated()
 		fn_msg "[INFO] CVE base expired"
 
 		# obtendo dados do UDD
-		fn_get_cve_db "$CODENOME" && fn_update_time "cve"
+		fn_download_cve_db "$CODENOME" && fn_update_time "cve"
 	fi
 
 	if [ ! -e "$CVE_DB_FILE" ]; then
 		fn_msg "[INFO] CVE file not found"
 
 		# obtendo dados do UDD
-		fn_get_cve_db "$CODENOME" && fn_update_time "cve"
+		fn_download_cve_db "$CODENOME" && fn_update_time "cve"
 	fi
 	
 	fn_aptget_update
@@ -866,7 +868,7 @@ function fn_update_packages_cve_old()
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
 		fn_msg "[INFO] CVE database expired"
-		fn_get_cve_db && fn_update_time "cve"
+		fn_download_cve_db && fn_update_time "cve"
 	fi
 	#apt-get update
 	fn_aptget_update
@@ -916,7 +918,7 @@ function fn_update_packages_cve ()
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
 		fn_msg "[INFO] CVE database expired"
-		fn_get_cve_db && fn_update_time "cve"
+		fn_download_cve_db && fn_update_time "cve"
 	fi
 	#apt-get update
 	#fn_aptget_update
@@ -1275,6 +1277,9 @@ function fn_main()
 		-R|--rollback)
 			fn_menu_rollback
 			;;
+		--renew-cache)
+			fn_download_cve_db
+			;;	
 
 		-h|--help)
 			fn_usage
