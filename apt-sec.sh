@@ -414,7 +414,7 @@ function fn_get_package_upgradeble_from_list()
 	
 	
 	# Lista de todos os pacotes e metadados oferecidos como parâmetro
-	echo "ORIGINAL"
+	echo "ORIGINAL -"
 	apt-get install ${PKG_LIST} --assume-no -V 2>/dev/null #| grep "^ " | awk '{print $1"|"$2"|"$4"|UPGRADABLE"}'| sed 's/[)(]//g'
 	LIST=$( apt-get install ${PKG_LIST} --assume-no -V 2>/dev/null| grep "^ " | awk '{print $1"|"$2"|"$4"|UPGRADABLE"}'| sed 's/[)(]//g')
 	
