@@ -639,7 +639,7 @@ function fn_list_package_upgradeble_cve_formated()
 	LIST=$(fn_get_all_package_upgradeble)
 	COUNT=0
 
-	printf " %-14s | %-16s | %-25s | %-10s %s\n" "CVE              " "SEVERITY" "PACKAGE" "VERSION"
+	printf " %-16s | %-16s | %-25s | %-10s %s\n" "CVE              " "SEVERITY" "PACKAGE" "VERSION"
 	fn_line
 
 	for I in $LIST; do
@@ -658,13 +658,13 @@ function fn_list_package_upgradeble_cve_formated()
 
 			case "$FORMAT" in
 				detail)
-					printf " %-10s | %-16s | %-25s | %-10s \n" "$CVE" "$SEVERITY" "$PKG" "$VERSION"
+					printf " %-16s | %-16s | %-25s | %-10s \n" "$CVE" "$SEVERITY" "$PKG" "$VERSION"
 					fn_line
 					printf " DESCRIPTION: %-s \n" "$DESCRIPTION"
 					fn_line "="
 					;;
 				*)
-					printf " %-10s | %-16s | %-25s | %-10s %s\n" "$CVE" "$SEVERITY" "$PKG" "$VERSION"
+					printf " %-16s | %-16s | %-25s | %-10s %s\n" "$CVE" "$SEVERITY" "$PKG" "$VERSION"
 					;;
 			esac
 		fi
@@ -1097,9 +1097,11 @@ function fn_update_packages_cve ()
 
 function fn_download_package_version()
 {
-	# função para realização de download de pacotes para realização de rollback
+	# função para realização de download de pacotes e dependencias antigos (anteriores) para realização de rollback.
 	PKG="$1"
 	VERSION="$2"
+	SAIDA=0
+	
 	#echo "%$PKG%$VERSION%"
 	if [ ! -d $ROLLBACK_PKG_DIR ];then
 		mkdir "$ROLLBACK_PKG_DIR"
@@ -1129,12 +1131,18 @@ function fn_download_package_version()
 			if [ "$RESULT" -eq 0 ];then
 				fn_msg "[INFO] Pacote: ${TMP_PKG}_${TMP_OLD_VER} baixado e arquivado para rollback em: $ROLLBACK_PKG_DIR"
 				#return 0
+				RETORNO=0
 			else
 				fn_msg "[ERROR] Problemas ao baixar pacote: ${TMP_PKG}_${TMP_OLD_VER} para rollback em: $ROLLBACK_PKG_DIR"
-				#return 1
+				RETORNO=1
 			fi
 		fi
+		if [ "$RETORNO" -eq 1 ];then
+			SAIDA=1
+		fi
+
 	done
+	return "$SAIDA"
 }
 
 
