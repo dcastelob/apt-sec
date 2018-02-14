@@ -1274,7 +1274,7 @@ function fn_main()
 			;;
 
 		-t)
-			echo "fn_list_package_upgradeble_cve_formated"
+			echo "XX fn_list_package_upgradeble_cve_formated"
 			fn_list_package_upgradeble_cve_formated
 			;;
 
