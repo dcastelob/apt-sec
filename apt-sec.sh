@@ -1037,11 +1037,10 @@ function fn_upgrade_from_list ()
 			echo "apt-get install -y "$PKG""
 			RESP="$?"
 			if [ "$RESP" -eq 0 ]; then
-				fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "$ITEM" "ROLLBACK-ON"
-				# liberando o cache e forçando o sistema a atualizar os dados de consultas
-				
+				fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "$ITEM" "ROLLBACK-ON"							
 			fi
 		done
+		# liberando o cache e forçando o sistema a atualizar os dados de consultas
 		fn_release_cache
 	fi
 }
@@ -1452,6 +1451,7 @@ function fn_menu_select_upgrade_by_urgency()
 
 	if [ ! -e "$CHANGE_LOGS_DB_FILE" -o -z "$LISTA" ];then
 		fn_msg "[ERROR] Consult urgency packages!"
+		fn_list_urgency_upgradable_summary
 		exit 2
 	fi
 
