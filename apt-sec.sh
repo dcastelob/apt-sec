@@ -664,10 +664,10 @@ function fn_list_package_for_upgradeble_by_urgency()
 		VER_OLD=$(apt-cache policy "$I" | grep -i "Installed" |awk '{print $2}')
 		VER_NEW=$(apt-cache policy "$I" | grep -i "Candidate" |awk '{print $2}')
 		OPERACAO=$(echo "UPGRADE - $OPT")
-		PKG="$PKG ($OPERACAO)"
+		PKG="$PKG"
 		NEW_LIST=$(echo -e "${NEW_LIST}$PKG|$VER_OLD|$VER_NEW|$OPERACAO\n")
 		#echo "$I"
-		printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "$PKG" "$VER_OLD" "$VER_NEW"
+		printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "$PKG ($OPERACAO)" "$VER_OLD" "$VER_NEW"
 	done
 	fn_line
 
