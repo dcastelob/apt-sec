@@ -1497,12 +1497,12 @@ function fn_menu_rollback()
 		exit 2
 	fi
 
-	
-
 	OLD_IFS=$' \t\n'
 	IFS=$'\n'
 
 	echo -e " Select number from rollback list (new on top) - Limited to $ROLLBACK_LIMITE itens:\n"
+	INDEX=$(seq -s "|" 1 $ROLLBACK_LIMITE)
+
 	select OPT in $LISTA "Quit";  do
 		case $OPT in
 			Sair|Quit)
@@ -1511,14 +1511,19 @@ function fn_menu_rollback()
 				exit 0
 				;;
 			*)
+				if [ -z "$OPT" ]; then
+					fn_msg "[ERROR] Invalid Option! "
+					exit 1
+				fi
+
 				FILTER=$(echo $OPT| awk '{print $1}')
 				#PKG_COLLECTION=$(cat "$APT_SEC_LOG" | grep "ROLLBACK-ON" | grep "$FILTER" | awk -F "|" '{print $4"|"$5"|"$6}' )
-				PKG_COLLECTION=$(cat "$APT_SEC_LOG" | grep "ROLLBACK-ON" | grep "$FILTER" )
-
-				#for PKG in $PKG_COLLECTION; do
-				#	echo "$PKG"
-				#done
+				PKG_COLLECTION=$(cat "$APT_SEC_LOG" | grep "ROLLBACK-ON" | grep "$FILTER" )								
 				fn_execute_rollback	"$PKG_COLLECTION"
+				;;
+			#*)
+			#	
+
 		esac
 	done
 	IFS=$OLD_IFS
