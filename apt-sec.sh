@@ -45,13 +45,13 @@ function fn_requiriments()
 	which psql &> /dev/null
 	if [ "$?" -ne 0 ];then
 		fn_msg "[FAIL] Command 'psql' not found."
-		PKG="${PKG} postgresql-client"
+		PKG="${PKG}postgresql-client "
 		COUNT=$(($COUNT+1))
 	fi
 	which lsb_release &> /dev/null
 	if [ "$?" -ne 0 ];then
 		fn_msg "[FAIL] Command 'lsb_release' not found."
-		PKG="${PKG} lsb-release"
+		PKG="${PKG}lsb-release "
 		COUNT=$(($COUNT+1))
 	else
 		export CODENOME=$(lsb_release -c | awk '{print $2}')
@@ -61,14 +61,14 @@ function fn_requiriments()
 	which column &> /dev/null
 	if [ "$?" -ne 0 ];then
 		fn_msg "[FAIL] Command 'column' not found."
-		PKG="${PKG} bsdmainutils"
+		PKG="${PKG}bsdmainutils "
 		COUNT=$(($COUNT+1))
 	fi
 
 	which aptitude &> /dev/null
 	if [ "$?" -ne 0 ];then
 		fn_msg "[FAIL] Command 'aptitude' not found."
-		PKG="${PKG} aptitude"
+		PKG="${PKG}aptitude "
 		COUNT=$(($COUNT+1))
 	fi
 
