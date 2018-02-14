@@ -51,15 +51,16 @@ function fn_requiriments()
 		PKG="${PKG}postgresql-client "
 		COUNT=$(($COUNT+1))
 	fi
-	which lsb_release &> /dev/null
-	if [ "$?" -ne 0 ];then
-		fn_msg "[FAIL] Command 'lsb_release' not found."
-		PKG="${PKG}lsb-release "
-		COUNT=$(($COUNT+1))
-	else
-		export CODENOME=$(lsb_release -c | awk '{print $2}')
+	#which lsb_release &> /dev/null
+	#if [ "$?" -ne 0 ];then
+	#	fn_msg "[FAIL] Command 'lsb_release' not found."
+	#	PKG="${PKG}lsb-release "
+	#	COUNT=$(($COUNT+1))
+	#else
+		#export CODENOME=$(lsb_release -c | awk '{print $2}')
+		export CODENOME=$(cat /etc/*release* | grep -uoE "\(.*\)" | uniq | sed "s/[)(]//g")
 
-	fi
+	#fi
 
 	which column &> /dev/null
 	if [ "$?" -ne 0 ];then
