@@ -687,7 +687,7 @@ function fn_list_package_for_upgradeble_by_urgency()
 
 	fn_line
 	NEW_LIST=$(echo -e "$NEW_LIST")  #DEBUG
-	echo "NEW_LIST: $NEW_LIST"
+	#echo "NEW_LIST: $NEW_LIST"
 	if [ -n "$NEW_LIST" ]; then
 		# Preparando para instalar os pacotes selecionados
 		#echo "LIST: $LIST"  # DEBUG
