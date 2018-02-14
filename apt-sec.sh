@@ -673,6 +673,7 @@ function fn_list_package_for_upgradeble_by_urgency()
 
 	if [ -n "$LIST" ]; then
 		# preparando para instalar os pacotes selecionados
+		echo "LIST: $LIST"
 		fn_upgrade_from_list "$LIST"
 		return 0
 	else
