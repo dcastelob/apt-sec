@@ -1190,17 +1190,17 @@ function fn_execute_rollback()
 
 function fn_menu_rollback()
 {
-
+	# função que prapara o menu para seleção de pacotes para a realização de Rollback (restauração)
+	
 	fn_titulo "ROLLBACK PACKAGES"
-
-
-	LISTA=$(tac "$APT_SEC_LOG" 2> /dev/null| grep -v "^$"| grep "ROLLBACK-ON" | awk -F "|" '{print $1" "$2}' | uniq -c  | awk '{print $2" | "$3" " $4" | "$1 " Package(s)"}' | head -n "$ROLLBACK_LIMITE" )
-
+	
 	if [ ! -e "$APT_SEC_LOG" -o -z "$LISTA" ];then
 		fn_msg "[ERROR] Log file: $APT_SEC_LOG not valid register found!"
 		fn_msg "[INFO] NOT ROLLBACK NEEDED!"
 		exit 2
 	fi
+
+	LISTA=$(tac "$APT_SEC_LOG" 2> /dev/null| grep -v "^$"| grep "ROLLBACK-ON" | awk -F "|" '{print $1" "$2}' | uniq -c  | awk '{print $2" | "$3" " $4" | "$1 " Package(s)"}' | head -n "$ROLLBACK_LIMITE" )
 
 	OLD_IFS=$' \t\n'
 	IFS=$'\n'
