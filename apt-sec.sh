@@ -949,6 +949,7 @@ function fn_upgrade_from_list ()
 		VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
 		VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
 		
+		echo "apt-get install -y $PKG"
 		apt-get install -y "$PKG"
 		
 		RESP="$?"
