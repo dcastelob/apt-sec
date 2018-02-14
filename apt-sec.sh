@@ -681,7 +681,7 @@ function fn_list_package_for_upgradeble_by_urgency()
 	fn_get_timestamp_end
 
 	fn_line
-	echo -e "NEW_LIST: $NEW_LIST"
+	#echo -e "NEW_LIST: $NEW_LIST"  #DEBUG
 	if [ -n "$NEW_LIST" ]; then
 		# Preparando para instalar os pacotes selecionados
 		#echo "LIST: $LIST"  # DEBUG
@@ -1039,9 +1039,10 @@ function fn_upgrade_from_list ()
 			if [ "$RESP" -eq 0 ]; then
 				fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "$ITEM" "ROLLBACK-ON"
 				# liberando o cache e forçando o sistema a atualizar os dados de consultas
-				fn_release_cache
+				
 			fi
 		done
+		fn_release_cache
 	fi
 }
 
