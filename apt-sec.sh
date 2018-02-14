@@ -656,6 +656,7 @@ function fn_list_package_for_upgradeble_by_urgency()
 	printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
 	COUNT=0
 	fn_line
+	NEW_LIST=""
 	for I in $LIST; do
 		COUNT=$(($COUNT+1))
 		#PKG=$(echo "$I" | awk -F "|" '{print $1}')
@@ -664,7 +665,7 @@ function fn_list_package_for_upgradeble_by_urgency()
 		VER_NEW=$(apt-cache policy "$I" | grep -i "Candidate" |awk '{print $3}')
 		OPERACAO=$(echo "UPGRADE - $OPT")
 		PKG="$PKG ($OPERACAO)"
-
+		NEW_LIST=$(echo -e "${NEW_LIST}$PKG|$VER_OLD|$VER_NEW|$OPERACAO\n")
 		#echo "$I"
 		printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "$PKG" "$VER_OLD" "$VER_NEW"
 	done
@@ -674,11 +675,11 @@ function fn_list_package_for_upgradeble_by_urgency()
 	fn_get_timestamp_end
 
 	fn_line
-
-	if [ -n "$LIST" ]; then
+	echo "NEW_LIST: $NEW_LIST"
+	if [ -n "$NEW_LIST" ]; then
 		# preparando para instalar os pacotes selecionados
-		echo "LIST: $LIST"
-		fn_upgrade_from_list "$LIST"
+		#echo "LIST: $LIST"  # DEBUG
+		fn_upgrade_from_list "$NEW_LIST"
 		return 0
 	else
 		return 1
@@ -924,7 +925,8 @@ function fn_upgrade_from_list ()
 
 	fi
 
-	LISTA=$(fn_get_package_upgradeble)
+	#LISTA=$(fn_get_package_upgradeble)
+	LISTA="$PKG_LIST"
 	for ITEM in $LISTA; do
 		#echo "ITEM: $ITEM"
 		PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
