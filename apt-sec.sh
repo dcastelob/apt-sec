@@ -201,7 +201,7 @@ function fn_generate_apt_log()
 	ROLLBACK_ENABLE="$5"
 
 	for I in $PKG_COLLECTION; do
-		echo "$DATE|$DATE_START_EVENT|$DATE_END_EVENT|$ROLLBACK_ENABLE|$I" >> "$APT_SEC_LOG"
+		echo -e "$DATE|$DATE_START_EVENT|$DATE_END_EVENT|$ROLLBACK_ENABLE|$I" >> "$APT_SEC_LOG"
 	done
 }
 
@@ -1130,7 +1130,7 @@ function fn_upgrade_from_list ()
 		RESP="$?"
 		if [ "$RESP" -eq 0 ]; then
 			OPERACAO_DATA_FINAL=$(date "+%x %T")
-			fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA_INICIO" "$OPERACAO_DATA_FINAL" "$ITEM" "ROLLBACK-OFF"
+			fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA_INICIO" "$OPERACAO_DATA_FINAL" "$ITEM" "ROLLBACK-ON"
 		fi
 	done
 
