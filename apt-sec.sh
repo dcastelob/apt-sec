@@ -1266,7 +1266,6 @@ function fn_main()
 
 		-C|--cve-update)
 			# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
-			#fn_list_package_upgradeble_cve_formated
 			fn_update_packages_cve
 			;;
 
@@ -1277,18 +1276,6 @@ function fn_main()
 		-t)
 			echo "fn_list_package_upgradeble_cve_formated"
 			fn_list_package_upgradeble_cve_formated
-			
-			#fn_get_all_package_upgradeble
-
-
-			#echo "fn_get_urgency_upgradable_data"
-			#fn_get_urgency_upgradable_data
-			#fn_get_all_package_upgradeble
-			
-			#cat /tmp/resume_chagelog
-			#fn_msg "[ERROR] teste" 
-			#fn_msg "[FAIL] teste" 
-			#fn_msg "[INFO] teste" 
 			;;
 
 		-s|--summary)
