@@ -578,7 +578,7 @@ function fn_list_urgency_upgradable_summary()
 		fn_get_urgency_upgradable_data
 		RESP="$?"
 		if [ "$RESP" -eq 0 ];then
-			fn_get_urgency_upgradable_sumary
+			fn_list_urgency_upgradable_summary
 		fi
 	fi
 }
