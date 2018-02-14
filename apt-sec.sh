@@ -6,24 +6,27 @@
 # Author: Diego Castelo Branco
 # E-mail: dcastelob@gmail.com
 # Create: 25/08/2017
-# Update: 31/08/2017
-# Version: 1.00.0001
+# Update: 14/02/2018
+# Version: 1.00.0002
 #
 #################################################################################################################
 
 
 ###############################################################################
 # VARIAVEIS DE CONTROLE
-#############################################################################
+###############################################################################
 #export LANG=en_US.UTF-8
 export VERBOSE=no
 
-export FILE_CONTROL="/tmp/apt-sec.ctrl"
-export EXPIRED_CVE="600"
-export EXPIRED_UPDATE="3600"
-
-export CVE_DB_FILE="/tmp/apt-sec.cvedb"
 export TMP_DIR="/tmp"
+export FILE_CONTROL="$TMP_DIR/apt-sec.ctrl"
+export CVE_DB_FILE="$TMP_DIR/apt-sec.cvedb"
+export PKG_DB_FILE="$TMP_DIR/apt-sec.pkgdb"
+export CHANGE_LOGS_DB_FILE="$TMP_DIR/apt-sec.clogdb"
+
+export EXPIRED_CVE="600"
+export EXPIRED_UPDATE="600"
+export EXPIRED_CHANGELOG="3600"
 
 export ROLLBACK_PKG_DIR="/var/cache/apt/rollback"
 export ROLLBACK_PKG_DIR_OWNER="root"
@@ -100,7 +103,6 @@ function fn_verifyRepeat()
 	return 1
 
 }
-		
 
 function fn_isRoot()
 {
@@ -164,15 +166,16 @@ function fn_usage()
 {
 	echo "Usage: $0 <option>"
 	echo "Options:"
-	echo " -h|--help         - Help commands"
-	echo " -l|--list         - List all packages upgradable"
-	echo " -s|--summary      - List summary for packages upgradable urgency based"
-	echo " -u|--urgency      - List all packages upgradable with urgency"
-	echo " -c|--cve-list     - List only packages with CVE associated"
-	echo " -a|--all          - Secure update for all packages upgradable"
-	echo " -C|--cve-update   - Secure update only packages with CVE associated detailed"
-	echo " -R|--rollback     - Execute rollback old packages"
-	echo " --renew-cache     - Renew cache for temp files"
+	echo " -h|--help        	 - Help commands"
+	echo " -l|--list        	 - List all packages upgradable"
+	echo " -s|--summary     	 - List summary for packages upgradable urgency based"
+	echo " -u|--urgency     	 - List all packages upgradable with urgency"
+	echo " -c|--cve-list    	 - List only packages with CVE associated"
+	echo " -a|--all         	 - Secure update for all packages upgradable"
+	echo " -C|--cve-update  	 - Secure update only packages with CVE associated detailed"
+	echo " -R|--rollback    	 - Execute rollback old packages"
+	echo " -U|--urgency-update   - Execute rollback old packages"
+	echo " --renew-cache    	 - Renew cache for temp files"
 	
 	echo
 
@@ -246,6 +249,9 @@ function fn_verify_expired()
 		UPDATE)
 			EXPIRED="${EXPIRED_UPDATE}"
 			;;
+		CHANGELOG)	
+			EXPIRED="${EXPIRED_CHANGELOG}"
+			;;
 		esac
 
 		if [ $(($ATUAL-$ULTIMO)) -gt "$EXPIRED" ];then
@@ -259,6 +265,7 @@ function fn_verify_expired()
 		# inicializando o arquivo de controle caso ele não exista
 		echo "cve=$ATUAL" > "$FILE_CONTROL"
 		echo "update=$ATUAL" >> "$FILE_CONTROL"
+		echo "changelog=$ATUAL" >> "$FILE_CONTROL"
 		return 0
 	fi
 }
@@ -278,6 +285,9 @@ function fn_update_time()
 		UPDATE)
 			sed -i "s/update=.*/update=$NEW_TIME/" "$FILE_CONTROL"
 			;;
+		CHANGELOG)
+			sed -i "s/changelog=.*/changelog=$NEW_TIME/" "$FILE_CONTROL"
+			;;	
 	esac
 }
 
@@ -312,7 +322,7 @@ function fn_aptget_update()
 
 function fn_locate_package_in_cve()
 {
-	# função para localizar se existe CVE para atualização de pacote
+	# função para localizar se existe CVE para atualização de pacote dentro da base local de CVE baixado localmente
 
 	PKG="$1"
 	#cat "$CVE_DB_FILE" | grep "| $PKG " | head -n1 |sed 's/ //g'| awk -F "|" '{print $1" "$2" "$3" "$4" "$7}'
@@ -341,7 +351,7 @@ function fn_locate_package_in_cve()
 
 function fn_locate_package_in_cve_details()
 {
-	# função para localizar se existe CVE para atualização de pacote
+	# função para localizar se existe CVE para atualização de pacote (consulta em arquivo local)
 
 	PKG="$1"
 	#cat "$CVE_DB_FILE" | grep "| $PKG " | head -n1 |sed 's/ //g'| awk -F "|" '{print $1" "$2" "$3" "$4" "$7}'
@@ -369,7 +379,7 @@ function fn_locate_package_in_cve_details()
 
 
 ###############################################################################
-# FUNCOES DE CONSULTA
+# FUNCOES DE CONSULTA DE PACOTES
 ###############################################################################
 
 
@@ -388,10 +398,66 @@ function fn_get_package_upgradeble()
 }
 
 
+function fn_get_package_upgradeble_from_list()
+{
+	# Função que gera uma lista simples de TODOS os pacotes atualizáveis passados como parametro
+
+	PKG_LIST="$1"
+
+	fn_verify_expired "update"
+	RESP="$?"
+
+	# caso ainda não tenha expirado update utiliza arquivo de cache
+	if [ "$RESP" -ne 0  ]; then
+		fn_aptget_update
+	fi
+	
+	
+	# Lista de todos os pacotes e metadados oferecidos como parâmetro
+	LIST=$( apt-get install ${PKG_LIST} --assume-no -V 2>/dev/null| grep "^ " | awk '{print $1"|"$2"|"$4"|UPGRADABLE"}'| sed 's/[)(]//g')
+	
+
+	# Lista apenas de todos os nomes de pacotes (utilizados para evitar repetições)
+	ALL_PKGS=$(echo "$LIST"|awk -F"|" '{print $1}')
+
+	PKG_COLLECTION=""
+	#echo "$LIST"
+	for I in $LIST; do
+		PKG=$(echo "$I" | awk -F "|" '{print $1}')
+		LIST_DEP=$(apt-get install "$PKG" -V --assume-no 2>/dev/null| egrep -A1000 "The following packages|Os pacotes a seguir"| grep "^ "| grep -v " ${PKG} " | awk '{print $1"|"$2"|"$4"|IS-DEPENDENCY"}' | sed 's/[)(]//g')
+		#echo "Lista DEP: $LIST_DEP"
+		
+		fn_verifyRepeat "$ALL_PKGS" "$PKG"
+		if [ "$?" -eq 1 ]; then
+			LIST_DEP=$(echo "${LIST_DEP}" | egrep -v "^${PKG}\|")
+			PKG_COLLECTION=$(echo -e "${PKG_COLLECTION}\n${LIST_DEP}")	
+		fi 
+	done
+
+	PKG_COLLECTION=$(echo -e "${PKG_COLLECTION}\n${LIST}")
+
+	# imprime lista de pacotes e atualiza o cache local em $PKG_DB_FILE (aumentar a velocidade)
+	echo "$PKG_COLLECTION" | sort -t"|" -k1 | uniq 
+}
+
+
 function fn_get_all_package_upgradeble()
 {
 	# Função que gera uma lista simples de TODOS os pacotes atualizáveis
 
+	if [ -e "$PKG_DB_FILE" ];then
+		# Se ja existe arquivo de cache local
+		
+		fn_verify_expired "update"
+		RESP="$?"
+
+		# caso ainda não tenha expirado update utiliza arquivo de cache
+		if [ "$RESP" -ne 0  ]; then
+			cat "$PKG_DB_FILE"
+			return 0
+		fi
+
+	fi	
 	# Lista de todos os pacotes e metadados
 	LIST=$( apt-get upgrade --assume-no -V | grep "^ " | awk '{print $1"|"$2"|"$4"|UPGRADABLE"}'| sed 's/[)(]//g')
 
@@ -414,11 +480,207 @@ function fn_get_all_package_upgradeble()
 
 	PKG_COLLECTION=$(echo -e "${PKG_COLLECTION}\n${LIST}")
 
-	echo "$PKG_COLLECTION" | sort -t"|" -k1 | uniq
+	# imprime lista de pacotes e atualiza o cache local em $PKG_DB_FILE (aumentar a velocidade)
+	echo "$PKG_COLLECTION" | sort -t"|" -k1 | uniq | tee "$PKG_DB_FILE"
 }
 
 
-function fn_list_package_upgradeble_formated(){
+function fn_get_urgency_upgradable_data()
+{
+	# Função que coleta dos dados de urgencia a partir dos changelogs dos pacotes e salva a relação em um arquivo temporário
+
+	fn_aptget_update
+	
+
+	#export LANG="pt_BR.UTF-8"
+	RELACAO=""
+	#for PKG in $(apt-get upgrade -V --assume-no | grep "^ " | awk '{print $1}'); do
+	for PKG in $(fn_get_all_package_upgradeble | awk -F "|" '{print $1}'); do
+		#echo "PKG: $PKG"
+		VAL="$PKG : "
+		#fn_line
+
+		if [ -e "$CHANGE_LOGS_DB_FILE" ];then
+		# Se ja existe arquivo de cache local
+		
+			fn_verify_expired "changelog"
+			RESP="$?"
+
+			# caso ainda não tenha expirado update utiliza arquivo de cache
+			if [ "$RESP" -ne 0  ]; then
+				cat "$CHANGE_LOGS_DB_FILE"
+				return 0
+			fi
+
+		fi
+		export PAGER=cat
+		RESULTADO=$(aptitude changelog "$PKG" 2>/dev/null)
+		#echo "$RESULTADO"| head -n10
+
+		RESP="$?"
+		if [ -z "$RESULTADO" ];then
+			VAL="${VAL}Not found changelog for package $PKG; urgency=unknown"
+		fi
+		#echo "RESP: $RESP"
+		echo "$RESULTADO"| grep -i "^Err" &>/dev/null
+		ERROR=$?
+		if [  "$ERROR" -eq 0 ];then
+			VAL=${VAL}$(echo "$PKG; urgency=unknown")
+		elif [ "$RESP" -eq 0 ];then
+			VAL=${VAL}$(echo "$RESULTADO"| head -n2 | tail -n1)
+		else
+			VAL=${VAL}$(echo "$PKG; urgency=unknown")
+		fi
+		RELACAO="${RELACAO}${VAL}\n"
+	done
+	echo -e "$RELACAO" | sort -t ";" -k 2 | uniq | grep -v ^$ > "$CHANGE_LOGS_DB_FILE" && fn_update_time "changelog"
+
+	if [ -e "$CHANGE_LOGS_DB_FILE" ]; then
+		return 0
+	else
+		return 1
+	fi
+}
+
+
+function fn_get_urgency_upgradable()
+{
+	# Função que apresenta os pacotes a serem atualizados com as informações de urgência
+
+	fn_get_timestamp_begin
+
+	#fn_verify_expired "cve"
+	#RESP="$?"
+
+	#if [ "$RESP" -eq 0  ]; then
+		# tempo maior que expirado
+	#	fn_msg "[INFO] Time out. CVE expired. Get data now"
+	#	rm -f "$CHANGE_LOGS_DB_FILE"
+
+	#	# obtendo dados de changelog para extração da urgencia
+	#	fn_get_urgency_upgradable_data && fn_update_time "cve"
+	#fi
+
+	if [ -e "$CHANGE_LOGS_DB_FILE" ]; then
+
+		fn_titulo "LIST ALL PACKAGES UPGRADEBLE - URGENCY"
+
+		fn_line
+		printf "%-10s  | %-50s\n" " URGENCY" "PACKAGE (Version) - Channel"
+		fn_line
+		IFS_OLD="$IFS"
+		IFS=$'\n'
+		COUNT=0
+		for PKG in $(cat "$CHANGE_LOGS_DB_FILE");do
+			COUNT=$(($COUNT+1))
+			P=$(echo $PKG | awk -F";" '{print $1}')
+			URGENCY=$(echo $PKG | awk -F";" '{print $2}'| cut -d "=" -f2)
+			printf " %-10s | %-50s\n" "$URGENCY" "$P"
+		done
+		fn_line
+
+		echo " $COUNT - Packages to update"
+		fn_get_timestamp_end
+
+		fn_line
+		IFS="$IFS_OLD"
+	else
+		fn_get_urgency_upgradable_data
+		RESP="$?"
+		if [ "$RESP" -eq 0 ];then
+			fn_get_urgency_upgradable
+		fi
+	fi
+}
+
+
+function fn_download_cve_db()
+{
+	# Função que coleta a base de CVEs atualizada e guarda localmente, obedecendo o tempo de expiração.
+	RELEASE="$1"
+	fn_msg "[INFO] Collect CVE database, wait..."
+
+	if [ -n "$RELEASE" ];then
+		export PGPASSWORD=udd-mirror && psql --host=udd-mirror.debian.net --user=udd-mirror udd -c "select s1.issue, s1.source, s1.fixed_version, s1.urgency, s1.release, s1.status, s2.description from public.security_issues_releases as s1 inner join public.security_issues as s2 on (s1.issue = s2.issue) where s1.release='$RELEASE' and s1.status='resolved' and s1.issue like 'CVE%' order by s1.issue desc limit $CVE_DB_LIMITE;" > "$CVE_DB_FILE"
+	else
+		export PGPASSWORD=udd-mirror && psql --host=udd-mirror.debian.net --user=udd-mirror udd -c "select s1.issue, s1.source, s1.fixed_version, s1.urgency, s1.release, s1.status, s2.description from public.security_issues_releases as s1 inner join public.security_issues as s2 on (s1.issue = s2.issue) where s1.release='stretch' and s1.status='resolved' and s1.issue like 'CVE%' order by s1.issue desc limit $CVE_DB_LIMITE;" > "$CVE_DB_FILE"
+	fi
+	#cat "$CVE_DB_FILE"
+}
+
+
+function fn_get_packages_dsa()
+{
+	# DESATIVADA
+	DSA="$1"
+	VALOR=$(curl --silent https://security-tracker.debian.org/tracker/"$DSA" 2>&1 |sed -e 's/<[tr]*>/\n/g'|sed -e 's/<[^>]*>/ /g'|  grep "$CODENOME" | grep -v "(unfixed)"| tail -n1)
+	if [ -z "$VALOR" ];then
+		echo "Sem resultado"
+	else
+		echo "$VALOR"
+	fi
+}
+
+
+###############################################################################
+# FUNCOES DE LISTAGEM
+###############################################################################
+
+
+function fn_list_package_for_upgradeble_by_urgency()
+{
+
+	# Função que gera uma lista formatada de pacotes atualizáveis recebida como parâmetro
+
+	PKG_LIST="$1"
+	OPT="$2"
+
+	fn_get_timestamp_begin
+	fn_msg "[INFO] List all packages and depenedencies for Urgency = $OPT. It may take a few minutes."
+
+	# Obtendo informações do terminal para dimensionamento das colunas da tabela de resulatados
+	COL_FROM=$(( $(fn_get_terminal_size) / 4 ))
+	COL_TO=${COL_FROM}
+	#echo "COL_FROM: $COL_FROM e COL_TO: $COL_TO"   #DEBUG
+
+	#fn_aptget_update
+
+	fn_titulo "LIST PACKAGES TO UPGRADE BY URGENCY = $OPT"
+
+	LIST=$(fn_get_package_upgradeble_from_list "$PKG_LIST")
+	fn_line
+	#printf " %-45s | %-25s | %-25s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
+	printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
+	COUNT=0
+	fn_line
+	for I in $LIST; do
+		COUNT=$(($COUNT+1))
+		PKG=$(echo "$I" | awk -F "|" '{print $1}')
+		VER_OLD=$(echo "$I" | awk -F "|" '{print $2}')
+		VER_NEW=$(echo "$I" | awk -F "|" '{print $3}')
+		OPERACAO=$(echo "$I" | awk -F "|" '{print $4}')
+		PKG="$PKG ($OPERACAO)"
+
+		#echo "$I"
+		printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "$PKG" "$VER_OLD" "$VER_NEW"
+	done
+	fn_line
+
+	echo " $COUNT - Packages to update"
+	fn_get_timestamp_end
+
+	fn_line
+
+	if [ -n "$LIST" ]; then
+		return 0
+	else
+		return 1
+	fi
+}
+
+
+function fn_list_package_upgradeble_formated()
+{
 
 	# Função que gera uma lista formatada de pacotes atualizáveis
 
@@ -466,100 +728,6 @@ function fn_list_package_upgradeble_formated(){
 }
 
 
-function fn_get_urgency_upgradable_data()
-{
-	# Função que coleta dos dados de urgencia a partir dos changelogs dos pacotes e salva a relação em um arquivo temporário
-
-	fn_aptget_update
-	
-
-	#export LANG="pt_BR.UTF-8"
-	RELACAO=""
-	#for PKG in $(apt-get upgrade -V --assume-no | grep "^ " | awk '{print $1}'); do
-	for PKG in $(fn_get_all_package_upgradeble | awk -F "|" '{print $1}'); do
-		#echo "PKG: $PKG"
-		VAL="$PKG : "
-		#fn_line
-		export PAGER=cat
-		RESULTADO=$(aptitude changelog "$PKG" 2>/dev/null)
-		#echo "$RESULTADO"| head -n10
-
-		RESP="$?"
-		if [ -z "$RESULTADO" ];then
-			VAL="${VAL}Not found changelog for package $PKG; urgency=unknown"
-		fi
-		#echo "RESP: $RESP"
-		echo "$RESULTADO"| grep -i "^Err" &>/dev/null
-		ERROR=$?
-		if [  "$ERROR" -eq 0 ];then
-			VAL=${VAL}$(echo "$PKG; urgency=unknown")
-		elif [ "$RESP" -eq 0 ];then
-			VAL=${VAL}$(echo "$RESULTADO"| head -n2 | tail -n1)
-		else
-			VAL=${VAL}$(echo "$PKG; urgency=unknown")
-		fi
-		RELACAO="${RELACAO}${VAL}\n"
-	done
-	echo -e "$RELACAO" | sort -t ";" -k 2 | uniq | grep -v ^$ > "$TMP_DIR"/resume_chagelog
-
-	if [ -e "$TMP_DIR"/resume_chagelog ]; then
-		return 0
-	else
-		return 1
-	fi
-}
-
-function fn_get_urgency_upgradable()
-{
-	# Função que apresenta os pacotes a serem atualizados com as informações de urgência
-
-	fn_get_timestamp_begin
-
-	fn_verify_expired "cve"
-	RESP="$?"
-
-	if [ "$RESP" -eq 0  ]; then
-		# tempo maior que expirado
-		fn_msg "[INFO] Time out. CVE expired. Get data now"
-		rm -f "$TMP_DIR"/resume_chagelog
-
-		# obtendo dados de changelog para extração da urgencia
-		fn_get_urgency_upgradable_data && fn_update_time "cve"
-	fi
-
-	if [ -e "$TMP_DIR"/resume_chagelog ]; then
-
-		fn_titulo "LIST ALL PACKAGES UPGRADEBLE - URGENCY"
-
-		fn_line
-		printf "%-10s  | %-50s\n" " URGENCY" "PACKAGE (Version) - Channel"
-		fn_line
-		IFS_OLD="$IFS"
-		IFS=$'\n'
-		COUNT=0
-		for PKG in $(cat "$TMP_DIR"/resume_chagelog);do
-			COUNT=$(($COUNT+1))
-			P=$(echo $PKG | awk -F";" '{print $1}')
-			URGENCY=$(echo $PKG | awk -F";" '{print $2}'| cut -d "=" -f2)
-			printf " %-10s | %-50s\n" "$URGENCY" "$P"
-		done
-		fn_line
-
-		echo " $COUNT - Packages to update"
-		fn_get_timestamp_end
-
-		fn_line
-		IFS="$IFS_OLD"
-	else
-		fn_get_urgency_upgradable_data
-		RESP="$?"
-		if [ "$RESP" -eq 0 ];then
-			fn_get_urgency_upgradable
-		fi
-	fi
-}
-
-
 function fn_list_urgency_upgradable_summary()
 {
 	# Função que apresenta um sumário dos pacotes por urgência
@@ -573,13 +741,13 @@ function fn_list_urgency_upgradable_summary()
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
 		fn_msg "[INFO] Time out for CVE. Get data, it may take a few minutes."
-		rm -f "$TMP_DIR"/resume_chagelog
+		rm -f "$CHANGE_LOGS_DB_FILE"
 
 		# Realizando o download dos changelogs dos pacotes para extração da urgencia.
 		fn_get_urgency_upgradable_data && fn_update_time "cve"
 	fi
 
-	if [ -e "$TMP_DIR"/resume_chagelog ]; then
+	if [ -e "$CHANGE_LOGS_DB_FILE" ]; then
 
 		fn_titulo "SUMMARY OF PACKAGES UPGRADEBLE - URGENCY"
 
@@ -588,8 +756,8 @@ function fn_list_urgency_upgradable_summary()
 		IFS_OLD="$IFS"
 		IFS=$'\n'
 		COUNT=0
-		for U in $(cat /tmp/resume_chagelog | cut -d";" -f2 | uniq );do
-			TOTAL_PKG=$(cat "$TMP_DIR"/resume_chagelog | grep "$U" | wc -l)
+		for U in $(cat "$CHANGE_LOGS_DB_FILE" | cut -d";" -f2 | uniq );do
+			TOTAL_PKG=$(cat "$CHANGE_LOGS_DB_FILE" | grep "$U" | wc -l)
 			COUNT=$(($COUNT+$TOTAL_PKG))
 			URGENCY=$(echo "$U" | cut -d"=" -f2)
 			printf " %03d        | %-50s\n" "$TOTAL_PKG" "Packages in $URGENCY"
@@ -608,21 +776,6 @@ function fn_list_urgency_upgradable_summary()
 			fn_list_urgency_upgradable_summary
 		fi
 	fi
-}
-
-
-function fn_download_cve_db()
-{
-	# Função que coleta a base de CVEs atualizada e guarda localmente, obedecendo o tempo de expiração.
-	RELEASE="$1"
-	fn_msg "[INFO] Collect CVE database, wait..."
-
-	if [ -n "$RELEASE" ];then
-		export PGPASSWORD=udd-mirror && psql --host=udd-mirror.debian.net --user=udd-mirror udd -c "select s1.issue, s1.source, s1.fixed_version, s1.urgency, s1.release, s1.status, s2.description from public.security_issues_releases as s1 inner join public.security_issues as s2 on (s1.issue = s2.issue) where s1.release='$RELEASE' and s1.status='resolved' and s1.issue like 'CVE%' order by s1.issue desc limit $CVE_DB_LIMITE;" > "$CVE_DB_FILE"
-	else
-		export PGPASSWORD=udd-mirror && psql --host=udd-mirror.debian.net --user=udd-mirror udd -c "select s1.issue, s1.source, s1.fixed_version, s1.urgency, s1.release, s1.status, s2.description from public.security_issues_releases as s1 inner join public.security_issues as s2 on (s1.issue = s2.issue) where s1.release='stretch' and s1.status='resolved' and s1.issue like 'CVE%' order by s1.issue desc limit $CVE_DB_LIMITE;" > "$CVE_DB_FILE"
-	fi
-	#cat "$CVE_DB_FILE"
 }
 
 
@@ -711,27 +864,15 @@ function fn_list_package_upgradeble_cve_formated()
 
 
 
-function fn_get_packages_dsa()
-{
-	# DESATIVADA
-	DSA="$1"
-	VALOR=$(curl --silent https://security-tracker.debian.org/tracker/"$DSA" 2>&1 |sed -e 's/<[tr]*>/\n/g'|sed -e 's/<[^>]*>/ /g'|  grep "$CODENOME" | grep -v "(unfixed)"| tail -n1)
-	if [ -z "$VALOR" ];then
-		echo "Sem resultado"
-	else
-		echo "$VALOR"
-	fi
-}
-
-
-
 ###############################################################################
 # FUNCOES DE UPDATE
 ###############################################################################
 
 function fn_upgrade_all ()
 {
-	#apt-get update
+	
+	# Função para atualização de todos os pacotes atualizaveis (sem seleção)
+
 	fn_aptget_update
 
 	fn_titulo "UPGRADE ALL PACKAGES"
@@ -885,9 +1026,6 @@ function fn_upgrade_all ()
 			fi
 		done
 	fi
-
-#	cat "$APT_SEC_LOG"
-
 }
 
 
@@ -1118,6 +1256,51 @@ function fn_update_packages_cve ()
 }
 
 
+function fn_menu_select_upgrade_by_urgency()
+{
+	# função que prapara o menu para seleção de pacotes para a realização de Rollback (restauração)
+	
+	fn_titulo "UPGRADE PACKAGES BY URGENCY"
+	
+	LISTA=$(for U in $(cat "$CHANGE_LOGS_DB_FILE" | cut -d";" -f2 | uniq );do
+		TOTAL_PKG=$(cat "$CHANGE_LOGS_DB_FILE" | grep "$U" | wc -l)
+		COUNT=$(($COUNT+$TOTAL_PKG))
+		URGENCY=$(echo "$U" | cut -d"=" -f2)
+		printf "%-10s | %-50s\n" "$URGENCY" "Packages: $TOTAL_PKG" 
+	done)
+
+	#LISTA=$(cat "$CHANGE_LOGS_DB_FILE" | cut -d";" -f2| cut -d"=" -f2 | uniq )
+
+	if [ ! -e "$CHANGE_LOGS_DB_FILE" -o -z "$LISTA" ];then
+		fn_msg "[ERROR] Consult urgency packages!"
+		exit 2
+	fi
+
+	
+
+	OLD_IFS=$' \t\n'
+	IFS=$'\n'
+
+	echo -e " Select number from urgence packages:\n"
+	select OPT in $LISTA "Quit";  do
+		case $OPT in
+			Sair|Quit)
+				#echo "$OPT option selected!"
+				echo "Finished!"
+				exit 0
+				;;
+			*)
+				OPT=$(echo "$OPT" | cut -d "|" -f1 | sed "s/ //g")
+				PKG_COLLECTION=$(cat "$CHANGE_LOGS_DB_FILE" | grep "$OPT"| cut -d" " -f1 | tr "\n" "|" )
+				echo "Colecao: $PKG_COLLECTION"
+				fn_list_package_for_upgradeble_by_urgency "$PKG_COLLECTION" "$OPT"
+				#fn_get_package_upgradeble_from_list "$PKG_COLLECTION"
+		esac
+	done
+	IFS=$OLD_IFS
+}
+
+
 
 #===========================================================================
 # ROLLBACK FUCNTIONS
@@ -1173,7 +1356,6 @@ function fn_download_package_version()
 	done
 	return "$SAIDA"
 }
-
 
 
 function fn_execute_rollback()
@@ -1233,12 +1415,7 @@ function fn_execute_rollback()
 
 			#fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "${PKG}|${VER_NEW}|${VER_OLD}" "REVERTED"
 
-		done
-
-		
-		
-		
-		
+		done		
 
 	else
 		fn_msg "[ERROR] Operation Canceled!"
@@ -1248,8 +1425,6 @@ function fn_execute_rollback()
 		#exit 1
 		return 1
 	fi
-
-
 }
 
 
@@ -1296,8 +1471,6 @@ function fn_menu_rollback()
 }
 
 
-
-
 #===========================================================================
 # FUNCÃO PRINCIPAL
 #===========================================================================
@@ -1332,6 +1505,7 @@ function fn_main()
 			;;
 
 		-t)
+			#menu oculto para testes
 			echo "XX fn_list_package_upgradeble_cve_formated"
 			fn_list_package_upgradeble_cve_formated
 			;;
@@ -1343,12 +1517,17 @@ function fn_main()
 		-u|--urgency)
 			fn_get_urgency_upgradable
 			;;
+		-U|--urgency-update)
+			fn_menu_select_upgrade_by_urgency
+			;;	
 
 		-R|--rollback)
 			fn_menu_rollback
 			;;
 		--renew-cache)
 			fn_download_cve_db
+			rm -f "$PKG_DB_FILE" && fn_msg "[INFO] Clear cache local for packages..."
+			rm -f "$CHANGE_LOGS_DB_FILE" && fn_msg "[INFO] Clear cache local for changelogs..."
 			;;	
 
 		-h|--help)
