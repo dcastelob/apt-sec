@@ -782,7 +782,7 @@ function fn_upgrade_all ()
 		fn_msg "[ERROR] Packages: $PKG_TO_UPDATE_FAIL_fn_msg"
 		echo
 
-		read -p "[QUESTION] Exitem pacotes que não podemos garantir o rollback. Deseja prosseguir mesmo assim? (y/n/a) [a]: " RESP
+		read -p "[QUESTION] Existem pacotes que não podemos garantir o rollback. Deseja prosseguir mesmo assim? (y/n/a) [a]: " RESP
 	    RESP=$(echo "${RESP:-"A"}")
     	RESP=$(echo $RESP| tr [a-z] [A-Z])
 
@@ -790,7 +790,7 @@ function fn_upgrade_all ()
     	case $RESP in
 			Y|S)
 				# sim
-				echo "Segue com pacotes sem suporte a Rollback"
+				fn_msg "[INFO] Segue com pacotes sem suporte a Rollback"
 				#echo "Pacotes válidos: $PKG_TO_UPDATE"
 				#echo "Pacotes inválidos: $PKG_TO_UPDATE_FAIL"
 				## Juntando todos os
@@ -800,7 +800,9 @@ function fn_upgrade_all ()
 					PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
 					VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
 					VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
-					echo "apt-get install "$PKG""
+					echo "apt-get install -y "$PKG""
+					apt-get install -y "$PKG"
+
 					RESP="$?"
 					if [ "$RESP" -eq 0 ]; then
 						fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "$ITEM" "ROLLBACK-ON"
@@ -811,7 +813,8 @@ function fn_upgrade_all ()
 					PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
 					VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
 					VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
-					echo "apt-get install "$PKG""
+					echo "apt-get install -y "$PKG""
+					apt-get install -y "$PKG"
 					RESP="$?"
 					if [ "$RESP" -eq 0 ]; then
 						fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "$ITEM" "ROLLBACK-OFF"
@@ -1005,7 +1008,7 @@ function fn_update_packages_cve ()
 		fn_msg "[ERROR] Packages: $PKG_TO_UPDATE_FAIL_fn_msg"
 		echo
 
-		read -p "[QUESTION] Exitem pacotes que não podemos garantir o rollback. Deseja prosseguir mesmo assim? (y/n/a) [a]: " RESP
+		read -p "[QUESTION] Existem pacotes que não podemos garantir o rollback. Deseja prosseguir mesmo assim? (y/n/a) [a]: " RESP
 	    RESP=$(echo "${RESP:-"A"}")
     	RESP=$(echo $RESP| tr [a-z] [A-Z])
 
@@ -1025,7 +1028,7 @@ function fn_update_packages_cve ()
 					VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
 					VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
 					#echo "apt-get install "$PKG""
-					apt-get install "$PKG"
+					apt-get install -y "$PKG"
 					RESP="$?"
 					if [ "$RESP" -eq 0 ]; then
 						fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "$ITEM" "ROLLBACK-ON"
@@ -1037,7 +1040,7 @@ function fn_update_packages_cve ()
 					VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
 					VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
 					#echo "apt-get install $PKG"
-					apt-get install "$PKG"
+					apt-get install -y "$PKG"
 					RESP="$?"
 					if [ "$RESP" -eq 0 ]; then
 						fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "$ITEM" "ROLLBACK-OFF"
