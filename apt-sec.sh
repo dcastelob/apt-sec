@@ -948,23 +948,23 @@ function fn_update_packages_cve ()
     	case $RESP in
 			Y|S)
 				# sim
-				echo "Inittiate download for actually version for rollback operations..."
+				fn_msg "[INFO] Inittiate download for actually version for rollback operations..."
 				;;
 
 			N)
 				# não
-				echo "Operation aborted!"
+				fn_msg "[INFO] Operation aborted!"
 				exit 1
 				;;
 
 			*)
-				echo "Invalid option"
-				echo "Operation aborted!"
+				fn_msg "[FAIL] Invalid option"
+				fn_msg "[INFO] Operation aborted!"
 				exit 1
 				;;
 		esac
 	else
-		echo "No packages to update"
+		fn_msg "[FAIL] No packages to update"
 		exit 0
 
 	fi
@@ -1001,8 +1001,8 @@ function fn_update_packages_cve ()
 
 	if [ -n "$PKG_TO_UPDATE_FAIL" ];then
 		echo
-		echo "Packages not found actually version to garant rollback!"
-		echo "$PKG_TO_UPDATE_FAIL_fn_msg"
+		fn_msg "[ERROR] Packages not found actually version to garant rollback!"
+		fn_msg "[ERROR] Packages: $PKG_TO_UPDATE_FAIL_fn_msg"
 		echo
 
 		read -p "[QUESTION] Exitem pacotes que não podemos garantir o rollback. Deseja prosseguir mesmo assim? (y/n/a) [a]: " RESP
