@@ -1275,8 +1275,9 @@ function fn_main()
 			;;
 
 		-t)
-			echo "fn_get_urgency_upgradable_data"
-			fn_get_urgency_upgradable_data
+			echo "fn_list_package_upgradeble_cve_formated"
+			fn_list_package_upgradeble_cve_formated
+			
 			#fn_get_all_package_upgradeble
 
 
