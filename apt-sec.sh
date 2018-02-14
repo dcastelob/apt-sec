@@ -1474,7 +1474,7 @@ function fn_menu_select_upgrade_by_urgency()
 				PKG_COLLECTION=$(cat "$CHANGE_LOGS_DB_FILE" | grep "$OPT"| cut -d" " -f1 )
 				echo "Colecao: $PKG_COLLECTION"
 				fn_list_package_for_upgradeble_by_urgency "$PKG_COLLECTION" "$OPT"
-				
+				exit 0
 				#fn_get_package_upgradeble_from_list "$PKG_COLLECTION"
 		esac
 	done
