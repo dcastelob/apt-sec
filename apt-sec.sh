@@ -686,7 +686,7 @@ function fn_list_package_for_upgradeble_by_urgency()
 	fn_get_timestamp_end
 
 	fn_line
-	#echo -e "NEW_LIST: $NEW_LIST"  #DEBUG
+	NEW_LIST=$(echo -e "$NEW_LIST")  #DEBUG
 	if [ -n "$NEW_LIST" ]; then
 		# Preparando para instalar os pacotes selecionados
 		#echo "LIST: $LIST"  # DEBUG
