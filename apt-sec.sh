@@ -1459,7 +1459,7 @@ function fn_menu_select_upgrade_by_urgency()
 			*)
 				OPT=$(echo "$OPT" | cut -d "|" -f1 | sed "s/ //g")
 				#PKG_COLLECTION=$(cat "$CHANGE_LOGS_DB_FILE" | grep "$OPT"| cut -d" " -f1 | tr "\n" "|" | sed "s/|$//g" )
-				PKG_COLLECTION=$(cat "$CHANGE_LOGS_DB_FILE" | grep "$OPT"| cut -d" " -f1 | tr "\n" " " | sed "s/|$//g" )
+				PKG_COLLECTION=$(cat "$CHANGE_LOGS_DB_FILE" | grep "$OPT"| cut -d" " -f1 )
 				echo "Colecao: $PKG_COLLECTION"
 				fn_list_package_for_upgradeble_by_urgency "$PKG_COLLECTION" "$OPT"
 				
