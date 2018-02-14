@@ -1093,7 +1093,7 @@ function fn_upgrade_from_list ()
     	case $RESP in
 			Y|S)
 				# sim
-				fn_msg "[INFO] Inittiate download for actually version for rollback operations..."
+				fn_msg "[INFO] Inittiate upgrade operations..."
 				;;
 
 			N)
@@ -1485,6 +1485,7 @@ function fn_menu_select_upgrade_by_urgency()
 	
 	fn_titulo "UPGRADE PACKAGES BY URGENCY"
 	
+
 	LISTA=$(for U in $(cat "$CHANGE_LOGS_DB_FILE" | cut -d";" -f2 | uniq );do
 		TOTAL_PKG=$(cat "$CHANGE_LOGS_DB_FILE" | grep "$U" | wc -l)
 		COUNT=$(($COUNT+$TOTAL_PKG))
