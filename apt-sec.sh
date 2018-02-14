@@ -468,8 +468,9 @@ function fn_get_urgency_upgradable_data()
 			VAL="${VAL}Not found changelog for package $PKG; urgency=unknown"
 		fi
 		#echo "RESP: $RESP"
-
-		if [ $(echo "$RESULTADO"| grep -i "^Err") -eq 0 ];then
+		echo "$RESULTADO"| grep -i "^Err"
+		ERROR=$?
+		if [  "$ERROR" -eq 0 ];then
 			VAL="${VAL}Not found changelog for package $PKG; urgency=unknown"
 		elif [ "$RESP" -eq 0 ];then
 			VAL=${VAL}$(echo "$RESULTADO"| head -n2 | tail -n1)
