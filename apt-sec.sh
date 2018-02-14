@@ -1157,18 +1157,23 @@ function fn_download_package_version()
 
 function fn_execute_rollback()
 {
-	PKG_COLLECTION="$1"
+	
+	# Função que realiza o rollback de seleção do menu de rollback
 
+	PKG_COLLECTION="$1"
 	PKG_TO_PURGE=""
 	PKG_TO_REINSTALL=""
+	
+	# MOntando a listagem de pacotes para rollback
 	fn_line
 	printf " %-45s | %-25s | %-15s\n" "PACKAGE" "FROM NEW VERSION" "TO OLD VERSION"
 	fn_line
+
 	for P in $PKG_COLLECTION; do
 
-		PKG=$(echo "$P" | awk -F"|" '{print $1}' )
-		VER_OLD=$(echo "$P" | awk -F"|" '{print $2}' )
-		VER_NEW=$(echo "$P" | awk -F"|" '{print $3}' )
+		PKG=$(echo "$P" | awk -F"|" '{print $4}' )
+		VER_OLD=$(echo "$P" | awk -F"|" '{print $5}' )
+		VER_NEW=$(echo "$P" | awk -F"|" '{print $6}' )
 
 		PKG_TO_PURGE="${PKG_TO_PURGE} ${PKG}"
 		PKG_TO_REINSTALL="${PKG_TO_REINSTALL}  ${PKG}=${VER_NEW}"
@@ -1181,12 +1186,35 @@ function fn_execute_rollback()
 	RESP=$(echo $RESP| tr [a-z] [A-Z])
 
 	if [ $RESP = "Y" ]; then
-		echo "apt-get -y purge $PKG_TO_PURGE"
-		echo "apt-get -y install $PKG_TO_REINSTALL"
+		OPERACAO_TIMESTAMP=$(date +%s)
+		OPERACAO_DATA=$(date "+%x %T")
+
+		# Removendo os pacotes após aprovação (YES)
+		for P in $PKG_COLLECTION; do
+
+			PKG=$(echo "$P" | awk -F"|" '{print $4}' )
+			VER_OLD=$(echo "$P" | awk -F"|" '{print $5}' )
+			VER_NEW=$(echo "$P" | awk -F"|" '{print $6}' )
+
+			echo "apt-get -y purge $PKG"
+			apt-get -y purge "$PKG"
+			
+			echo "apt-get -y install ${PKG}=${VER_OLD}"
+			apt-get -y install "${PKG}=${VER_OLD}"
+
+			fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "${PKG}|${VER_NEW}|${VER_OLD}" "REVERTED"
+
+		done
+
+		
+		
+		
+		
+
 	else
-		echo " Operation Canceled!"
+		fn_msg "[ERROR] Operation Canceled!"
 		echo
-		echo " [ Press enter to view rollback list...] "
+		fn_msg "[INFO] Press enter to view rollback list... "
 		echo
 		#exit 1
 		return 1
@@ -1226,7 +1254,8 @@ function fn_menu_rollback()
 				;;
 			*)
 				FILTER=$(echo $OPT| awk '{print $1}')
-				PKG_COLLECTION=$(cat "$APT_SEC_LOG" | grep "ROLLBACK-ON" | grep "$FILTER" | awk -F "|" '{print $4"|"$5"|"$6}' )
+				#PKG_COLLECTION=$(cat "$APT_SEC_LOG" | grep "ROLLBACK-ON" | grep "$FILTER" | awk -F "|" '{print $4"|"$5"|"$6}' )
+				PKG_COLLECTION=$(cat "$APT_SEC_LOG" | grep "ROLLBACK-ON" | grep "$FILTER" )
 
 				#for PKG in $PKG_COLLECTION; do
 				#	echo "$PKG"
