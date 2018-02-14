@@ -1122,8 +1122,8 @@ function fn_upgrade_from_list ()
 	OPERACAO_DATA_INICIO=$(date "+%x %T")
 
 	# ABORDAGEM TODOS OS PACOTES NUMA ÚNICA TRANSACAO
-	
-	for ITEM in "$PKG_LIST"; do
+	IFS=$'\n'
+	for ITEM in $PKG_LIST; do
 		PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
 		VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
 		VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
