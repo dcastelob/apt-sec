@@ -1101,7 +1101,7 @@ function fn_download_package_version()
 	PKG="$1"
 	VERSION="$2"
 	SAIDA=0
-	
+
 	#echo "%$PKG%$VERSION%"
 	if [ ! -d $ROLLBACK_PKG_DIR ];then
 		mkdir "$ROLLBACK_PKG_DIR"
@@ -1194,11 +1194,11 @@ function fn_menu_rollback()
 	fn_titulo "ROLLBACK PACKAGES"
 
 
-	LISTA=$(tac "$APT_SEC_LOG" | grep -v "^$"| grep "ROLLBACK-ON" | awk -F "|" '{print $1" "$2}' | uniq -c  | awk '{print $2" | "$3" " $4" | "$1 " Package(s)"}' | head -n "$ROLLBACK_LIMITE" )
+	LISTA=$(tac "$APT_SEC_LOG" 2> /dev/null| grep -v "^$"| grep "ROLLBACK-ON" | awk -F "|" '{print $1" "$2}' | uniq -c  | awk '{print $2" | "$3" " $4" | "$1 " Package(s)"}' | head -n "$ROLLBACK_LIMITE" )
 
 	if [ ! -e "$APT_SEC_LOG" -o -z "$LISTA" ];then
-		echo "Log file: $APT_SEC_LOG not valid register found!"
-		echo "NOT ROLLBACK NEEDED!"
+		fn_msg "[ERROR] Log file: $APT_SEC_LOG not valid register found!"
+		fn_msg "[INFO] NOT ROLLBACK NEEDED!"
 		exit 2
 	fi
 
