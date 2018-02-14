@@ -730,23 +730,23 @@ function fn_upgrade_all ()
     	case $RESP in
 			Y|S)
 				# sim
-				echo "Inittiate download for actually version for rollback operations..."
+				fn_msg "[INFO] Inittiate download for actually version for rollback operations..."
 				;;
 
 			N)
 				# não
-				echo "Operation aborted!"
+				fn_msg "[FAIL] Operation aborted!"
 				exit 1
 				;;
 
 			*)
-				echo "Invalid option"
-				echo "Operation aborted!"
+				fn_msg "[ERROR] Invalid option"
+				fn_msg "[ERROR] Operation aborted!"
 				exit 1
 				;;
 		esac
 	else
-		echo "No packages to update"
+		fn_msg "[ERROR] No packages to update"
 		exit 0
 
 	fi
@@ -837,11 +837,11 @@ function fn_upgrade_all ()
 				done
 				;;
 			A)
-				echo "Operation aborted!"
+				fn_msg "[FAIL] Operation aborted!"
 				;;
 			*)
-				echo "Invalid option"
-				echo "Operation aborted!"
+				fn_msg "[ERROR] Invalid option"
+				fn_msg "[ERROR] Operation aborted!"
 		esac
 
 	else
