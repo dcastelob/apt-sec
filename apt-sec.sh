@@ -186,7 +186,7 @@ function fn_release_cache()
 {
 	fn_download_cve_db
 	rm -f "$PKG_DB_FILE" && fn_msg "[INFO] Clear cache local for packages..."
-	rm -f "$CHANGE_LOGS_DB_FILE" && fn_msg "[INFO] Clear cache local for changelogs..."
+	
 }
 
 function fn_generate_apt_log()
@@ -203,8 +203,8 @@ function fn_generate_apt_log()
 	IFS=$"\n"
 
 	for I in $PKG_COLLECTION; do
-		echo ${I}
-		echo -e "$DATE|$DATE_START_EVENT|$DATE_END_EVENT|$STATUS|${I}" >> "$APT_SEC_LOG"
+		#echo ${I}
+		echo "$DATE|$DATE_START_EVENT|$DATE_END_EVENT|$STATUS|${I}" >> "$APT_SEC_LOG"
 	done
 }
 
@@ -1757,6 +1757,7 @@ function fn_main()
 			;;
 		--renew-cache)
 			fn_release_cache
+			rm -f "$CHANGE_LOGS_DB_FILE" && fn_msg "[INFO] Clear cache local for changelogs..."
 			;;	
 
 		-h|--help)
