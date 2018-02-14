@@ -198,7 +198,7 @@ function fn_generate_apt_log()
 	DATE_START_EVENT="$2"
 	DATE_END_EVENT="$3"
 	PKG_COLLECTION="$4"
-	ROLLBACK_ENABLE="$4"
+	ROLLBACK_ENABLE="$5"
 
 	for I in $PKG_COLLECTION; do
 		echo "$DATE|$DATE_START_EVENT|$DATE_END_EVENT|$ROLLBACK_ENABLE|$I" >> "$APT_SEC_LOG"
@@ -1213,57 +1213,6 @@ function fn_upgrade_all ()
 	fi
 }
 
-
-function fn_update_packages_cve_old()
-{
-
-
-	fn_verify_expired "cve"
-	RESP="$?"
-
-	if [ "$RESP" -eq 0  ]; then
-		# tempo maior que expirado
-		fn_msg "[INFO] CVE database expired"
-		fn_download_cve_db && fn_update_time "cve"
-	fi
-	#apt-get update
-	fn_aptget_update
-
-	# Verificando se todos os pacotes atualizaveis possuem um CVE associado
-
-	fn_titulo "LIST PACKAGES WITH CVE"
-
-	LISTA=$(fn_get_package_upgradeble)
-
-	for ITEM in $LISTA; do
-		#echo "ITEM: $ITEM"
-		PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
-		VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
-		VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
-
-		#echo "PKG: $PKG, VER_OLD: $VER_OLD, VER_NEW: $VER_NEW "   #DEBUG
-		fn_locate_package_in_cve "$PKG"
-		RESP="$?"
-		if [ "$RESP" -eq 0 ]; then
-			#echo "PACOTE: $PKG"
-			fn_download_package_version "$PKG" "$VER_OLD"
-			RESP2="$?"
-			if [ "$RESP2" -eq 0 ]; then
-				PKG_COLLECTION=$(echo -e "${PKG_COLLECTION}\n${ITEM}")
-				PKG_TO_UPDATE="${PKG_TO_UPDATE} ${PKG}"
-			fi
-		fi
-	done
-
-	if [ -n "$PKG_TO_UPDATE" ];then
-		echo "apt-get install $PKG_TO_UPDATE"
-		OPERACAO_DATA_FINAL=$(date "+%x %T")
-		fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA_INICIO" "$OPERACAO_DATA_FINAL" "$PKG_COLLECTION" "ROLLBACK-ON"
-	else
-		echo "Not found packages with CVE"
-	fi
-
-}
 
 function fn_update_packages_cve ()
 {
