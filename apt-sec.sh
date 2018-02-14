@@ -504,7 +504,6 @@ function fn_get_urgency_upgradable_data()
 
 	fn_aptget_update
 	
-
 	#export LANG="pt_BR.UTF-8"
 	RELACAO=""
 	#for PKG in $(apt-get upgrade -V --assume-no | grep "^ " | awk '{print $1}'); do
@@ -562,18 +561,6 @@ function fn_list_urgency_upgradable()
 
 	fn_get_timestamp_begin
 
-	#fn_verify_expired "cve"
-	#RESP="$?"
-
-	#if [ "$RESP" -eq 0  ]; then
-		# tempo maior que expirado
-	#	fn_msg "[INFO] Time out. CVE expired. Get data now"
-	#	rm -f "$CHANGE_LOGS_DB_FILE"
-
-	#	# obtendo dados de changelog para extração da urgencia
-	#	fn_get_urgency_upgradable_data && fn_update_time "cve"
-	#fi
-
 	if [ -e "$CHANGE_LOGS_DB_FILE" ]; then
 
 		fn_titulo "LIST ALL PACKAGES UPGRADEBLE - URGENCY"
@@ -584,7 +571,8 @@ function fn_list_urgency_upgradable()
 		IFS_OLD="$IFS"
 		IFS=$'\n'
 		COUNT=0
-		for PKG in $(cat "$CHANGE_LOGS_DB_FILE");do
+		#for PKG in $(cat "$CHANGE_LOGS_DB_FILE");do
+		for PKG in $(fn_get_urgency_upgradable_data);do
 			COUNT=$(($COUNT+1))
 			P=$(echo $PKG | awk -F";" '{print $1}')
 			URGENCY=$(echo $PKG | awk -F";" '{print $2}'| cut -d "=" -f2)
@@ -598,7 +586,7 @@ function fn_list_urgency_upgradable()
 		fn_line
 		IFS="$IFS_OLD"
 	else
-		fn_get_urgency_upgradable_data
+		fn_get_urgency_upgradable_data &> /dev/null
 		RESP="$?"
 		if [ "$RESP" -eq 0 ];then
 			fn_list_urgency_upgradable
@@ -755,17 +743,8 @@ function fn_list_urgency_upgradable_summary()
 	fn_get_timestamp_begin
 	fn_msg "[INFO] List all packages and depenedencies. It may take a few minutes."
 
-	# Verificando se o tempo de consulta do CVE expirou
-	#fn_verify_expired "cve"
-	#RESP="$?"
-	#if [ "$RESP" -eq 0  ]; then
-		# tempo maior que expirado
-	#	fn_msg "[INFO] Time out for CVE. Get data, it may take a few minutes."
-	#	rm -f "$CHANGE_LOGS_DB_FILE"
-
-
 	# Realizando o download dos changelogs dos pacotes para extração da urgencia.
-	fn_get_urgency_upgradable_data && fn_update_time "cve"
+	fn_get_urgency_upgradable_data &> /dev/null && fn_update_time "cve"
 	#fi
 
 	if [ -e "$CHANGE_LOGS_DB_FILE" ]; then
@@ -1341,6 +1320,11 @@ function fn_menu_select_upgrade_by_urgency()
 				exit 0
 				;;
 			*)
+				if [ -z "$OPT" ]; then
+					fn_msg "[ERROR] Invalid Option! "
+					exit 1
+				fi
+
 				OPT=$(echo "$OPT" | cut -d "|" -f1 | sed "s/ //g")
 				#PKG_COLLECTION=$(cat "$CHANGE_LOGS_DB_FILE" | grep "$OPT"| cut -d" " -f1 | tr "\n" "|" | sed "s/|$//g" )
 				PKG_COLLECTION=$(cat "$CHANGE_LOGS_DB_FILE" | grep "$OPT"| cut -d" " -f1 )
