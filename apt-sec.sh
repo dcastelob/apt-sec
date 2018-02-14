@@ -778,8 +778,8 @@ function fn_upgrade_all ()
 
 	if [ -n "$PKG_TO_UPDATE_FAIL" ];then
 		echo
-		echo "Packages not found actually version to garant rollback!"
-		echo "$PKG_TO_UPDATE_FAIL_fn_msg"
+		fn_msg "[ERROR] Packages not found actually version to garant rollback!"
+		fn_msg "[ERROR] Packages: $PKG_TO_UPDATE_FAIL_fn_msg"
 		echo
 
 		read -p "[QUESTION] Exitem pacotes que não podemos garantir o rollback. Deseja prosseguir mesmo assim? (y/n/a) [a]: " RESP
@@ -1195,8 +1195,9 @@ function fn_menu_rollback()
 	fn_titulo "ROLLBACK PACKAGES"
 	
 	if [ ! -e "$APT_SEC_LOG" -o -z "$LISTA" ];then
-		fn_msg "[ERROR] Log file: $APT_SEC_LOG not valid register found!"
-		fn_msg "[INFO] NOT ROLLBACK NEEDED!"
+		#fn_msg "[ERROR] Log file: $APT_SEC_LOG not valid register found!"
+		#fn_msg "[INFO] NOT ROLLBACK NEEDED!"
+		fn_msg "[INFO] NOT ROLLBACK REGISTER TO PROCESS!"
 		exit 2
 	fi
 
