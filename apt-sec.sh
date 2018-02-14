@@ -1197,10 +1197,15 @@ function fn_execute_rollback()
 			VER_NEW=$(echo "$P" | awk -F"|" '{print $6}' )
 
 			echo "apt-get -y purge $PKG"
-			apt-get -y purge "$PKG"
+			apt-get -y purge "$PKG" 
 			
 			echo "apt-get -y install ${PKG}=${VER_OLD}"
 			apt-get -y install "${PKG}=${VER_OLD}"
+			# caso não encontre o pacote nos repositórios, buscar no cache local
+			if [ $? -ne 0 ];then
+				fn_msg "[INFO] install package ${PKG} from repo local ($ROLLBACK_PKG_DIR)"
+				dpkg -i "${ROLLBACK_PKG_DIR}/${PKG}"
+			fi 
 
 			fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA" "${PKG}|${VER_NEW}|${VER_OLD}" "REVERTED"
 
