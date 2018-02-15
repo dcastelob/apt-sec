@@ -1648,7 +1648,8 @@ function fn_main()
 			fn_menu_select_upgrade_by_urgency
 			;;
 		-r|--report)	
-			fn_report	
+			fn_report
+			;;	
 
 		-R|--rollback)
 			fn_menu_rollback
