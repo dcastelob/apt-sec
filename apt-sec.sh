@@ -1407,12 +1407,18 @@ function fn_report()
 	PKG_TO_PURGE=""
 	PKG_TO_REINSTALL=""
 	
-	# MOntando a listagem de pacotes para rollback
+	# MOntando relatorio
+	DATE_START=$(echo "$PKG_COLLECTION" | head -n1 | awk -F"|" '{print $2}' )
+	DATE_STOP=$(echo "$PKG_COLLECTION" | tail -n1 | awk -F"|" '{print $3}' )
+	
+	fn_line
+	printf " START: %-38s | STOP: %-60s\n" "$DATE_START" "$DATE_STOP"
+	
 	fn_line
 	printf " %-45s | %-25s | %-15s\n" "PACKAGE" "NEW VERSION" "OLD VERSION"
+	
 	fn_line
-
-	for P in $PKG_COLLECTION; do
+		for P in $PKG_COLLECTION; do
 
 		PKG=$(echo "$P" | awk -F"|" '{print $5}' )
 		VER_OLD=$(echo "$P" | awk -F"|" '{print $6}' )
@@ -1422,7 +1428,8 @@ function fn_report()
 		PKG_TO_REINSTALL="${PKG_TO_REINSTALL}  ${PKG}=${VER_NEW}"
 		printf " %-45s | %-25s | %-15s\n" "$PKG" "$VER_NEW" "$VER_OLD"
 	done
-	fn_line	
+	fn_line
+	fn_msg "[INFO] Press ENTER for return at report list!"	
 }
 
 
