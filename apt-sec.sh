@@ -175,7 +175,8 @@ function fn_usage()
 	echo " -a|--all-update     	 - Secure update for all packages upgradable"
 	echo " -C|--cve-update  	 - Secure update only packages with CVE associated detailed"
 	echo " -U|--urgency-update	 - Secure update only packages urgency filter"
-	echo " -R|--rollback    	 - Execute rollback old packages"	
+	echo " -r|--report   	 	 - Show report off updates packages"	
+	#echo " -R|--rollback    	 - Execute rollback old packages"	
 	echo " --renew-cache    	 - Renew cache for temp files"
 	
 	echo
@@ -1347,6 +1348,80 @@ function fn_menu_select_upgrade_by_urgency()
 }
 
 
+#===========================================================================
+# REPORT FUCNTIONS
+#===========================================================================
+
+
+function fn_report()
+{
+	
+	# Função que realiza o rollback de seleção do menu de rollback
+
+	PKG_COLLECTION="$1"
+	PKG_TO_PURGE=""
+	PKG_TO_REINSTALL=""
+	
+	# MOntando a listagem de pacotes para rollback
+	fn_line
+	printf " %-45s | %-25s | %-15s\n" "PACKAGE" "FROM NEW VERSION" "TO OLD VERSION"
+	fn_line
+
+	for P in $PKG_COLLECTION; do
+
+		PKG=$(echo "$P" | awk -F"|" '{print $5}' )
+		VER_OLD=$(echo "$P" | awk -F"|" '{print $6}' )
+		VER_NEW=$(echo "$P" | awk -F"|" '{print $7}' )
+
+		PKG_TO_PURGE="${PKG_TO_PURGE} ${PKG}"
+		PKG_TO_REINSTALL="${PKG_TO_REINSTALL}  ${PKG}=${VER_NEW}"
+		printf " %-45s | %-25s | %-15s\n" "$PKG" "$VER_NEW" "$VER_OLD"
+	done
+	fn_line
+
+	read -p " WARNING - Rollback packages selected? (y/n) [n]: " RESP
+	RESP=$(echo "${RESP:-"N"}")
+	RESP=$(echo $RESP| tr [a-z] [A-Z])
+
+	if [ $RESP = "Y" ]; then
+		OPERACAO_TIMESTAMP=$(date +%s)
+		OPERACAO_DATA_INICIO=$(date "+%x %T")
+
+		# Removendo os pacotes após aprovação (YES)
+		for P in $PKG_COLLECTION; do
+
+			PKG=$(echo "$P" | awk -F"|" '{print $5}' )
+			VER_OLD=$(echo "$P" | awk -F"|" '{print $6}' )
+			VER_NEW=$(echo "$P" | awk -F"|" '{print $7}' )
+
+			echo "apt-get -y purge $PKG"
+			apt-get -y purge "$PKG" 
+			
+			echo "apt-get -y install ${PKG}=${VER_OLD}"
+			apt-get -y install "${PKG}=${VER_OLD}"
+			# caso não encontre o pacote nos repositórios, buscar no cache local
+			if [ $? -ne 0 ];then
+				fn_msg "[INFO] install package ${PKG} from repo local ($ROLLBACK_PKG_DIR)"
+				dpkg -i "${ROLLBACK_PKG_DIR}/${PKG}" && fn_update_apt_log "$PKG_COLLECTION" "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA"
+			else
+				# atualizando a linha de log de operações
+				fn_update_apt_log "$PKG_COLLECTION" "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA"
+			fi 
+
+			#fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA_INICIO" "$OPERACAO_DATA_FINAL" "${PKG}|${VER_NEW}|${VER_OLD}" "REVERTED"
+
+		done		
+
+	else
+		fn_msg "[ABORTED] Operation Canceled!"
+		echo
+		fn_msg "[INFO] Press enter to view rollback list... "
+		echo
+		#exit 1
+		return 1
+	fi
+}
+
 
 #===========================================================================
 # ROLLBACK FUCNTIONS
@@ -1464,7 +1539,7 @@ function fn_execute_rollback()
 		done		
 
 	else
-		fn_msg "[ERROR] Operation Canceled!"
+		fn_msg "[ABORTED] Operation Canceled!"
 		echo
 		fn_msg "[INFO] Press enter to view rollback list... "
 		echo
@@ -1571,7 +1646,9 @@ function fn_main()
 
 		-U|--urgency-update)
 			fn_menu_select_upgrade_by_urgency
-			;;	
+			;;
+		-r|--report)	
+			fn_report	
 
 		-R|--rollback)
 			fn_menu_rollback
