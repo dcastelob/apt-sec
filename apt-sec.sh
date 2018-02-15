@@ -36,6 +36,7 @@ export ROLLBACK_LIMITE=5
 export CVE_DB_LIMITE=10000
 export REPORTS_LIMITE=5
 
+export APT_LOG="/var/log/apt/history.log"
 
 ###############################################################################
 # FUNCOES ASSESSÓRIAS
@@ -176,7 +177,8 @@ function fn_usage()
 	echo " -a|--all-update     	 - Secure update for all packages upgradable"
 	echo " -C|--cve-update  	 - Secure update only packages with CVE associated detailed"
 	echo " -U|--urgency-update	 - Secure update only packages urgency filter"
-	echo " -r|--report   	 	 - Show report off updates packages"	
+	echo " -r|--report   	 	 - Show apt-sec report off updates packages"
+	echo " -H|--history [option]   - Show apt history off updates packages"		
 	#echo " -R|--rollback    	 - Execute rollback old packages"	
 	echo " --renew-cache    	 - Renew cache for temp files"
 	
@@ -700,8 +702,8 @@ function fn_list_package_upgradeble_formated()
 	fn_msg "[INFO] List all packages and depenedencies. It may take a few minutes."
 
 	# Obtendo informações do terminal para dimensionamento das colunas da tabela de resulatados
-	COL_FROM=$(( $(fn_get_terminal_size) / 4 ))
-	COL_TO=${COL_FROM}
+	COL_A=$(( $(fn_get_terminal_size) / 3 ))
+	COL_B=$((COL_A-5))
 	#echo "COL_FROM: $COL_FROM e COL_TO: $COL_TO"   #DEBUG
 
 	fn_aptget_update
@@ -710,8 +712,8 @@ function fn_list_package_upgradeble_formated()
 
 	LIST=$(fn_get_all_package_upgradeble)
 	fn_line
-	#printf " %-45s | %-25s | %-25s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
-	printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
+	#printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
+	printf " %-${COL_B}s | %-${COL_A}s | %-${COL_A}s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
 	COUNT=0
 	NEW_LIST=""
 
@@ -726,7 +728,8 @@ function fn_list_package_upgradeble_formated()
 		NEW_LIST="${NEW_LIST}$PKG|$VER_OLD|$VER_NEW|${OPERACAO}\n"
 
 		#echo "$I"
-		printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "$PKG ($OPERACAO)" "$VER_OLD" "$VER_NEW"
+		#printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "$PKG ($OPERACAO)" "$VER_OLD" "$VER_NEW"
+		printf " %-${COL_B}s | %-${COL_A}s | %-${COL_A}s\n" "${PKG::${COL_B}}" "${VER_OLD::${COL_A}}" "${VER_NEW::${COL_A}}" 
 	done
 	fn_line
 	NEW_LIST=$(echo -e "$NEW_LIST")
@@ -1407,15 +1410,18 @@ function fn_report()
 	PKG_TO_PURGE=""
 	PKG_TO_REINSTALL=""
 	
+	# Pegando o tamanho das colunas de forma variada
+	COL_A=$(( $(fn_get_terminal_size) / 3 ))
+	COL_B=$((COL_A-5))	
 	# MOntando relatorio
 	DATE_START=$(echo "$PKG_COLLECTION" | head -n1 | awk -F"|" '{print $2}' )
 	DATE_STOP=$(echo "$PKG_COLLECTION" | tail -n1 | awk -F"|" '{print $3}' )
 	
 	fn_line
-	printf " START: %-38s | STOP: %-60s\n" "$DATE_START" "$DATE_STOP"
+	printf " [START]: %-20s [STOP]: %-60s\n" "$DATE_START" "$DATE_STOP"
 	
 	fn_line
-	printf " %-45s | %-25s | %-15s\n" "PACKAGE" "NEW VERSION" "OLD VERSION"
+	printf " %-${COL_B}s | %-${COL_A}s | %-${COL_A}s\n" "PACKAGE" "NEW VERSION" "OLD VERSION"
 	
 	fn_line
 		for P in $PKG_COLLECTION; do
@@ -1426,11 +1432,123 @@ function fn_report()
 
 		PKG_TO_PURGE="${PKG_TO_PURGE} ${PKG}"
 		PKG_TO_REINSTALL="${PKG_TO_REINSTALL}  ${PKG}=${VER_NEW}"
-		printf " %-45s | %-25s | %-15s\n" "$PKG" "$VER_NEW" "$VER_OLD"
+		printf " %-${COL_B}s | %-${COL_A}s | %-${COL_A}s\n" "${PKG::${COL_B}}" "${VER_NEW::${COL_A}}" "${VER_OLD::${COL_A}}"
 	done
 	fn_line
 	fn_msg "[INFO] Press ENTER for return at report list!"	
 }
+
+
+function fn_get_resume_history()
+{
+	#cat $APT_LOG | egrep --color=auto "^([[:alpha:]])*:|Start-Date: ([[:digit:]]){4}-([[:digit:]]){2}-([[:digit:]]){2}  ([[:digit:]]){2}:([[:digit:]]){2}:([[:digit:]]){2}" -o | grep -v "Commandline:"| tr "\n" " " | sed 's/Start/\nStart/g' | grep -v "^$"
+	cat $APT_LOG | egrep --color=auto "^([[:alpha:]])*:|Start-Date: ([[:digit:]]){4}-([[:digit:]]){2}-([[:digit:]]){2}  ([[:digit:]]){2}:([[:digit:]]){2}:([[:digit:]]){2}" -o | grep -v "Commandline:"| tr "\n" " " | sed 's/Start/\nStart/g' | grep -v "^$" | tac
+
+}
+
+function fn_get_apt_history()
+{
+    #    OPTION="$1"
+    #    DATE="$2"
+    #    HOUR="$3"
+    #    INFO="$4"
+
+        OPTION="$1"
+        DATE="$2"
+        HOUR="$3"
+        INFO="$4"
+	
+	
+	# Dentro dessa variável estão todos os eventos
+	#    LOG_INLINE=$(cat /var/log/apt/history.log | tr "\n" ";"| sed 's/Start/\nStart/g') 
+	
+	CMD_LOG_INLINE="cat $APT_LOG | tr \"\n\" \";\"| sed 's/Start/\nStart/g'| grep -i \"${OPTION}:\""
+	# echo "CMD: $CMD_LOG_INLINE"  # debug
+	# Tudo em uma linha comecando por Start-Date
+	RESULT=$(eval $CMD_LOG_INLINE)
+	# echo "REsult: $RESULT"   # debug
+	#DATE=$(echo $RESULT | egrep -o "Start-Date: ([[:digit:]]){4}-([[:digit:]]){2}-([[:digit:]]){2}  ([[:digit:]]){2}:([[:digit:]]){2}:([[:digit:]]){2}") 
+	#DATE=$(echo "$RESULT" | egrep -o "Start-Date: ([[:digit:]]){4}-([[:digit:]]){2}-([[:digit:]]){2}  ([[:digit:]]){2}:([[:digit:]]){2}:([[:digit:]]){2}") 
+	FILTER=""
+	if [ -n "$DATE" ];then
+		if [ -n "$HOUR" ];then
+			FILTER="$DATE  $HOUR"
+		else
+			FILTER="$DATE"
+		fi
+	else
+		FILTER=""
+
+	fi
+	OLD_IFS=$' \t\n'
+	IFS=$'\n'	
+	for EVENT in $(echo "$RESULT" | grep -i "$FILTER"); do
+		START_DATE=$(echo "$EVENT" | egrep -o "Start-Date: ([[:digit:]]){4}-([[:digit:]]){2}-([[:digit:]]){2}  ([[:digit:]]){2}:([[:digit:]]){2}:([[:digit:]]){2}")
+		START_DATE=$(echo $START_DATE| awk -F" " '{print $2" "$3 }')
+		
+		END_DATE=$(echo "$EVENT" | egrep -o "End-Date: ([[:digit:]]){4}-([[:digit:]]){2}-([[:digit:]]){2}  ([[:digit:]]){2}:([[:digit:]]){2}:([[:digit:]]){2}")
+		END_DATE=$(echo $END_DATE| awk -F" " '{print $2" "$3  }')
+		FILTER=""
+		#for F in Install Remove Purge Upgrade End-Date; do
+		for F in Install Remove Purge Upgrade End-Date Error; do
+			FILTER="$FILTER | sed 's/$F:/\n$F:/g' "
+		done
+		CMD_MULTILINE="echo \"$EVENT\" $FILTER"
+		EVENT_MULTILINE=$(eval "$CMD_MULTILINE")
+#		echo 
+		#echo "CMD_MULTILINE : $CMD_MULTILINE " # debug
+#		echo "$START_DATE - [$OPTION]"
+		#echo "DataFim   : $END_DATE"		# debug
+		#echo "Multiline : $EVENT_MULTILINE"	# debug
+		FILTER=""
+		# Retirando o tipo de operação de dentro dos registros
+		for F in Install Remove Purge Upgrade End-Date Error; do
+        	FILTER="$FILTER | sed 's/$F://g' "
+        done
+		CMD_MULTILINE="echo \"$EVENT_MULTILINE\" | grep -i \"${OPTION}:\" ${FILTER} | sed 's/),/)\n/g' | sed 's/[),(]/;/g' | sed 's/ //g'"
+		#echo "CM: $CMD_MULTILINE"
+		RESULT=$(eval "$CMD_MULTILINE")
+		#RESULT=$(echo "$EVENT_MULTILINE" | grep -i "${OPTION}:"|  sed 's/),/)\n/g' | sed 's/[),(]/;/g' | sed 's/ //g')
+		#echo "$EVENT_MULTILINE" | grep -i "$OPTION" # debug
+		## echo "$RESULT"
+		for LINHA in $RESULT;do
+			#echo "$OPTION;$LINHA"
+			echo "$START_DATE;$END_DATE;$OPTION;$LINHA"
+		done
+	done
+}
+
+function usage_menu_history()
+{
+	echo "Usage: $0 -H|--history <filter> [date] [hour]"
+	echo " Filters: date-only|install|remove|purge|upgrade"
+	echo " Data Format: \"YYYY-MM-DD\"  Hour Format: \"hh:mm:ss\""
+}
+
+function fn_menu_history()
+{
+	# begin script
+	shift
+	OPT=$(echo "$1" | tr 'A-Z' 'a-z')
+
+	if [ "$#" -lt 1 ]; then
+		usage_menu_history
+		exit 1
+	else
+		
+		case "$OPT" in
+			install|purge|remove|upgrade|error)
+				fn_get_apt_history "$OPT" "$2" "$3" "$4"
+				;;
+			date-only)
+				fn_get_resume_history
+				;;
+			*)
+			usage_menu_history
+		esac
+fi
+}
+
 
 
 #===========================================================================
@@ -1659,7 +1777,10 @@ function fn_main()
 			;;
 		-r|--report)	
 			fn_menu_report
-			;;	
+			;;
+		-H|--history)
+			fn_menu_history "$@"
+			;;		
 
 		#-R|--rollback)
 		#	fn_menu_rollback
