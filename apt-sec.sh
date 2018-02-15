@@ -1352,6 +1352,53 @@ function fn_menu_select_upgrade_by_urgency()
 # REPORT FUCNTIONS
 #===========================================================================
 
+function fn_menu_report()
+{
+	# função que prapara o menu para seleção de pacotes para a realização de Rollback (restauração)
+	
+	fn_titulo "REPORT OFF UPDATES"
+	
+	LISTA=$(tac "$APT_SEC_LOG" 2> /dev/null| grep -v "^$"| grep "ROLLBACK-ON" | awk -F "|" '{print $1" "$2}' | uniq -c  | awk '{print $2" | "$3" " $4" | "$1 " Package(s)"}' | head -n "$ROLLBACK_LIMITE" )
+	#LISTA=$(tac "$APT_SEC_LOG" 2> /dev/null| grep -v "^$"| grep "ROLLBACK-ON" | awk -F "|" '{print $1" "$2" }' | uniq -c  | awk '{print $2" | "$3" " $4" | "$1 " Package(s)"}' | head -n "$ROLLBACK_LIMITE" )
+
+	if [ ! -e "$APT_SEC_LOG" -o -z "$LISTA" ];then
+		#fn_msg "[ERROR] Log file: $APT_SEC_LOG not valid register found!"
+		#fn_msg "[INFO] NOT ROLLBACK NEEDED!"
+		fn_msg "[INFO] NOT ROLLBACK (ON) REGISTER TO PROCESS!"
+		exit 2
+	fi
+
+	OLD_IFS=$' \t\n'
+	IFS=$'\n'
+
+	echo -e " Select number from rollback list (new on top) - Limited to $ROLLBACK_LIMITE itens:\n"
+	
+	select OPT in $LISTA "Quit";  do
+		case $OPT in
+			Sair|Quit)
+				#echo "$OPT option selected!"
+				fn_msg "[INFO] Exit without changes!"
+				exit 0
+				;;
+			*)
+				if [ -z "$OPT" ]; then
+					fn_msg "[ERROR] Invalid Option! "
+					exit 1
+				fi
+
+				FILTER=$(echo $OPT| awk '{print $1}')
+				#PKG_COLLECTION=$(cat "$APT_SEC_LOG" | grep "ROLLBACK-ON" | grep "$FILTER" | awk -F "|" '{print $4"|"$5"|"$6}' )
+				PKG_COLLECTION=$(cat "$APT_SEC_LOG" | grep "ROLLBACK-ON" | grep "$FILTER" )								
+				fn_report "$PKG_COLLECTION"
+				;;
+			#*)
+			#	
+
+		esac
+	done
+	IFS=$OLD_IFS
+}
+
 
 function fn_report()
 {
@@ -1364,7 +1411,7 @@ function fn_report()
 	
 	# MOntando a listagem de pacotes para rollback
 	fn_line
-	printf " %-45s | %-25s | %-15s\n" "PACKAGE" "FROM NEW VERSION" "TO OLD VERSION"
+	printf " %-45s | %-25s | %-15s\n" "PACKAGE" "NEW VERSION" "OLD VERSION"
 	fn_line
 
 	for P in $PKG_COLLECTION; do
@@ -1377,49 +1424,7 @@ function fn_report()
 		PKG_TO_REINSTALL="${PKG_TO_REINSTALL}  ${PKG}=${VER_NEW}"
 		printf " %-45s | %-25s | %-15s\n" "$PKG" "$VER_NEW" "$VER_OLD"
 	done
-	fn_line
-
-	read -p " WARNING - Rollback packages selected? (y/n) [n]: " RESP
-	RESP=$(echo "${RESP:-"N"}")
-	RESP=$(echo $RESP| tr [a-z] [A-Z])
-
-	if [ $RESP = "Y" ]; then
-		OPERACAO_TIMESTAMP=$(date +%s)
-		OPERACAO_DATA_INICIO=$(date "+%x %T")
-
-		# Removendo os pacotes após aprovação (YES)
-		for P in $PKG_COLLECTION; do
-
-			PKG=$(echo "$P" | awk -F"|" '{print $5}' )
-			VER_OLD=$(echo "$P" | awk -F"|" '{print $6}' )
-			VER_NEW=$(echo "$P" | awk -F"|" '{print $7}' )
-
-			echo "apt-get -y purge $PKG"
-			apt-get -y purge "$PKG" 
-			
-			echo "apt-get -y install ${PKG}=${VER_OLD}"
-			apt-get -y install "${PKG}=${VER_OLD}"
-			# caso não encontre o pacote nos repositórios, buscar no cache local
-			if [ $? -ne 0 ];then
-				fn_msg "[INFO] install package ${PKG} from repo local ($ROLLBACK_PKG_DIR)"
-				dpkg -i "${ROLLBACK_PKG_DIR}/${PKG}" && fn_update_apt_log "$PKG_COLLECTION" "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA"
-			else
-				# atualizando a linha de log de operações
-				fn_update_apt_log "$PKG_COLLECTION" "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA"
-			fi 
-
-			#fn_generate_apt_log "$OPERACAO_TIMESTAMP" "$OPERACAO_DATA_INICIO" "$OPERACAO_DATA_FINAL" "${PKG}|${VER_NEW}|${VER_OLD}" "REVERTED"
-
-		done		
-
-	else
-		fn_msg "[ABORTED] Operation Canceled!"
-		echo
-		fn_msg "[INFO] Press enter to view rollback list... "
-		echo
-		#exit 1
-		return 1
-	fi
+	fn_line	
 }
 
 
@@ -1648,7 +1653,7 @@ function fn_main()
 			fn_menu_select_upgrade_by_urgency
 			;;
 		-r|--report)	
-			fn_report
+			fn_menu_report
 			;;	
 
 		-R|--rollback)
