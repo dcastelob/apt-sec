@@ -121,10 +121,10 @@ function fn_msg()
 {
 	# Função para apresentação de notificações no terminal de forma colorida
 
-	TIPO=$(echo "$1"| grep -oiE "FAIL|ERROR|INFO")
+	TIPO=$(echo "$1"| grep -oiE "FAIL|ERROR|INFO|ABORTED")
 	#echo "${TIPO}"
 	case $TIPO in
-		FAIL|ERROR)
+		FAIL|ERROR|ABORTED)
 		echo -e "\033[01;31m${1}\033[00;37m"
 		;;
 		"INFO")
@@ -690,7 +690,9 @@ function fn_list_package_for_upgradeble_by_urgency()
 function fn_list_package_upgradeble_formated()
 {
 
-	# Função que gera uma lista formatada de pacotes atualizáveis
+	# Função que gera uma lista formatada de pacotes atualizáveis e permite atualizar os pacotes listados
+	ACTION="$1"
+	ACTION=$(echo $ACTION | tr [a-z] [A-Z])
 
 	fn_get_timestamp_begin
 	fn_msg "[INFO] List all packages and depenedencies. It may take a few minutes."
@@ -709,6 +711,8 @@ function fn_list_package_upgradeble_formated()
 	#printf " %-45s | %-25s | %-25s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
 	printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
 	COUNT=0
+	NEW_LIST=""
+
 	fn_line
 	for I in $LIST; do
 		COUNT=$(($COUNT+1))
@@ -716,19 +720,24 @@ function fn_list_package_upgradeble_formated()
 		VER_OLD=$(echo "$I" | awk -F "|" '{print $2}')
 		VER_NEW=$(echo "$I" | awk -F "|" '{print $3}')
 		OPERACAO=$(echo "$I" | awk -F "|" '{print $4}')
-		PKG="$PKG ($OPERACAO)"
+		#PKG="$PKG ($OPERACAO)"
+		NEW_LIST="${NEW_LIST}$PKG|$VER_OLD|$VER_NEW|${OPERACAO}\n"
 
 		#echo "$I"
-		printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "$PKG" "$VER_OLD" "$VER_NEW"
+		printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "$PKG ($OPERACAO)" "$VER_OLD" "$VER_NEW"
 	done
 	fn_line
+	NEW_LIST=$(echo -e "$NEW_LIST")
 
 	echo " $COUNT - Packages to update"
 	fn_get_timestamp_end
 
 	fn_line
 
-	if [ -n "$LIST" ]; then
+	#if [ -n "$LIST" ]; then
+
+	if [ -n "$NEW_LIST" -a "$ACTION" == "UPDATE" ]; then
+		fn_upgrade_from_list "$NEW_LIST"
 		return 0
 	else
 		return 1
@@ -902,7 +911,7 @@ function fn_upgrade_from_list ()
 
 			N)
 				# não
-				fn_msg "[FAIL] Operation aborted!"
+				fn_msg "[ABORTED] Operation aborted!"
 				exit 1
 				;;
 
@@ -979,7 +988,7 @@ function fn_upgrade_all ()
 
 			N)
 				# não
-				fn_msg "[FAIL] Operation aborted!"
+				fn_msg "[ABORTED] Operation aborted!"
 				exit 1
 				;;
 
@@ -1084,7 +1093,7 @@ function fn_upgrade_all ()
 				done
 				;;
 			A)
-				fn_msg "[FAIL] Operation aborted!"
+				fn_msg "[ABORTED] Operation aborted!"
 				;;
 			*)
 				fn_msg "[ERROR] Invalid option"
@@ -1552,7 +1561,8 @@ function fn_main()
 			;;
 
 		-a|--all-update)
-			fn_upgrade_all
+			fn_list_package_upgradeble_formated "UPDATE"
+			#fn_upgrade_all
 			;;
 
 		-C|--cve-update)
