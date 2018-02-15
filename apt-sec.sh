@@ -34,6 +34,7 @@ export APT_SEC_LOG="/var/log/apt-sec.log"
 
 export ROLLBACK_LIMITE=5
 export CVE_DB_LIMITE=10000
+export REPORTS_LIMITE=5
 
 
 ###############################################################################
@@ -1354,24 +1355,21 @@ function fn_menu_select_upgrade_by_urgency()
 
 function fn_menu_report()
 {
-	# função que prapara o menu para seleção de pacotes para a realização de Rollback (restauração)
+	# função que prapara o menu para seleção de relatórios de atualizações de pacotes 
 	
 	fn_titulo "REPORT OFF UPDATES"
 	
-	LISTA=$(tac "$APT_SEC_LOG" 2> /dev/null| grep -v "^$"| grep "ROLLBACK-ON" | awk -F "|" '{print $1" "$2}' | uniq -c  | awk '{print $2" | "$3" " $4" | "$1 " Package(s)"}' | head -n "$ROLLBACK_LIMITE" )
-	#LISTA=$(tac "$APT_SEC_LOG" 2> /dev/null| grep -v "^$"| grep "ROLLBACK-ON" | awk -F "|" '{print $1" "$2" }' | uniq -c  | awk '{print $2" | "$3" " $4" | "$1 " Package(s)"}' | head -n "$ROLLBACK_LIMITE" )
+	LISTA=$(tac "$APT_SEC_LOG" 2> /dev/null| grep -v "^$"| grep "ROLLBACK-ON" | awk -F "|" '{print $1" "$2}' | uniq -c  | awk '{print $2" | "$3" " $4" | "$1 " Package(s)"}' | head -n "$REPORTS_LIMITE" )
 
 	if [ ! -e "$APT_SEC_LOG" -o -z "$LISTA" ];then
-		#fn_msg "[ERROR] Log file: $APT_SEC_LOG not valid register found!"
-		#fn_msg "[INFO] NOT ROLLBACK NEEDED!"
-		fn_msg "[INFO] NOT ROLLBACK (ON) REGISTER TO PROCESS!"
+		fn_msg "[INFO] NOT UPDATES LOCALIZED!"
 		exit 2
 	fi
 
 	OLD_IFS=$' \t\n'
 	IFS=$'\n'
 
-	echo -e " Select number from rollback list (new on top) - Limited to $ROLLBACK_LIMITE itens:\n"
+	echo -e " Select number off uptade list (new on top) - Limited to $REPORTS_LIMITE itens:\n"
 	
 	select OPT in $LISTA "Quit";  do
 		case $OPT in
@@ -1656,9 +1654,9 @@ function fn_main()
 			fn_menu_report
 			;;	
 
-		-R|--rollback)
-			fn_menu_rollback
-			;;
+		#-R|--rollback)
+		#	fn_menu_rollback
+		#	;;
 		--renew-cache)
 			fn_release_cache
 			rm -f "$CHANGE_LOGS_DB_FILE" && fn_msg "[INFO] Clear cache local for changelogs..."
