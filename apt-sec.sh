@@ -1325,7 +1325,7 @@ function fn_menu_select_upgrade_by_urgency()
 		case $OPT in
 			Sair|Quit)
 				#echo "$OPT option selected!"
-				echo "Finished!"
+				fn_msg "[INFO] Exit without changes!"
 				exit 0
 				;;
 			*)
@@ -1494,13 +1494,12 @@ function fn_menu_rollback()
 	IFS=$'\n'
 
 	echo -e " Select number from rollback list (new on top) - Limited to $ROLLBACK_LIMITE itens:\n"
-	INDEX=$(seq -s "|" 1 $ROLLBACK_LIMITE)
-
+	
 	select OPT in $LISTA "Quit";  do
 		case $OPT in
 			Sair|Quit)
 				#echo "$OPT option selected!"
-				echo "Finished!"
+				fn_msg "[INFO] Exit without changes!"
 				exit 0
 				;;
 			*)
