@@ -38,6 +38,8 @@ export REPORTS_LIMITE=5
 
 export APT_LOG="/var/log/apt/history.log"
 
+export PS3="[Choice]: "
+
 ###############################################################################
 # FUNCOES ASSESSÓRIAS
 ###############################################################################
@@ -86,7 +88,6 @@ function fn_requiriments()
 	fi
 
 }
-
 
 function fn_verifyRepeat()
 {
@@ -246,7 +247,6 @@ function fn_get_timestamp_end()
 	fi
 }
 
-
 function fn_verify_expired()
 {
 	# Função acessório que verifica se o tempo de espera para coleta de dados foi excedido
@@ -284,7 +284,6 @@ function fn_verify_expired()
 		return 0
 	fi
 }
-
 
 function fn_update_time()
 {
@@ -363,7 +362,6 @@ function fn_locate_package_in_cve()
 	fi
 }
 
-
 function fn_locate_package_in_cve_details()
 {
 	# função para localizar se existe CVE para atualização de pacote (consulta em arquivo local)
@@ -392,7 +390,6 @@ function fn_locate_package_in_cve_details()
 }
 
 
-
 ###############################################################################
 # FUNCOES DE CONSULTA DE PACOTES
 ###############################################################################
@@ -411,7 +408,6 @@ function fn_get_package_upgradeble()
 	echo "$LIST"
 	#printf "%-25s | %-15s | %-15s\n" "$PKG" "$VER_OLD" "$VER_NEW"
 }
-
 
 function fn_get_package_upgradeble_from_list()
 {
@@ -457,7 +453,6 @@ function fn_get_package_upgradeble_from_list()
 	echo "$PKG_COLLECTION" | sort -t"|" -k1 | uniq 
 }
 
-
 function fn_get_all_package_upgradeble()
 {
 	# Função que gera uma lista simples de TODOS os pacotes atualizáveis
@@ -500,7 +495,6 @@ function fn_get_all_package_upgradeble()
 	# imprime lista de pacotes e atualiza o cache local em $PKG_DB_FILE (aumentar a velocidade)
 	echo "$PKG_COLLECTION" | sort -t"|" -k1 | uniq | tee "$PKG_DB_FILE"
 }
-
 
 function fn_get_urgency_upgradable_data()
 {
@@ -558,7 +552,6 @@ function fn_get_urgency_upgradable_data()
 	fi
 }
 
-
 function fn_list_urgency_upgradable()
 {
 	# Função que apresenta os pacotes a serem atualizados com as informações de urgência
@@ -598,7 +591,6 @@ function fn_list_urgency_upgradable()
 	fi
 }
 
-
 function fn_download_cve_db()
 {
 	# Função que coleta a base de CVEs atualizada e guarda localmente, obedecendo o tempo de expiração.
@@ -613,7 +605,6 @@ function fn_download_cve_db()
 	#cat "$CVE_DB_FILE"
 }
 
-
 function fn_get_packages_dsa()
 {
 	# DESATIVADA
@@ -625,7 +616,6 @@ function fn_get_packages_dsa()
 		echo "$VALOR"
 	fi
 }
-
 
 ###############################################################################
 # FUNCOES DE LISTAGEM
@@ -690,7 +680,6 @@ function fn_list_package_for_upgradeble_by_urgency()
 	fi
 }
 
-
 function fn_list_package_upgradeble_formated()
 {
 
@@ -708,10 +697,16 @@ function fn_list_package_upgradeble_formated()
 
 	fn_aptget_update
 
-	fn_titulo "LIST ALL PACKAGES UPGRADEBLE"
-
 	LIST=$(fn_get_all_package_upgradeble)
+
+	if [ -z  "$LIST" ]; then
+		fn_msg "[ERROR] No exist data for selection."
+		exit 0	
+	fi
+
+	fn_titulo "LIST ALL PACKAGES UPGRADEBLE"
 	fn_line
+
 	#printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
 	printf " %-${COL_B}s | %-${COL_A}s | %-${COL_A}s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
 	COUNT=0
@@ -748,7 +743,6 @@ function fn_list_package_upgradeble_formated()
 		return 1
 	fi
 }
-
 
 function fn_list_urgency_upgradable_summary()
 {
@@ -792,7 +786,6 @@ function fn_list_urgency_upgradable_summary()
 	fi
 }
 
-
 function fn_list_package_upgradeble_cve_formated()
 {
 
@@ -822,14 +815,17 @@ function fn_list_package_upgradeble_cve_formated()
 	
 	fn_aptget_update
 
-	fn_titulo "LIST ALL PACKAGES UPGRADEBLE - CVE"
+	
 	
 	LIST=$(fn_get_all_package_upgradeble)
 
 	if [ -z "$LIST" ];then
-		fn_msg "[INFO] Packges from CVE file not found"
+		fn_msg "[ERROR] Packges from CVE file not found"
 		exit 0
 	fi
+	
+	fn_titulo "LIST ALL PACKAGES UPGRADEBLE - CVE"
+
 	COUNT=0
 
 	printf " %-16s | %-16s | %-25s | %-10s %s\n" "CVE              " "SEVERITY" "PACKAGE" "VERSION"
@@ -876,6 +872,111 @@ function fn_list_package_upgradeble_cve_formated()
 	fi
 }
 
+function fn_list_package_history()
+{
+
+	# Função que gera uma lista formatada de pacotes extraidos do log do apt.log
+	ACTION="$1"
+	LIST="$2"
+
+	ACTION=$(echo $ACTION | tr [a-z] [A-Z])
+
+	fn_get_timestamp_begin
+	fn_msg "[INFO] Get data history from apt log file."
+
+	if [ -z  "$LIST" ]; then
+		fn_msg "[ERROR] No exist data for selection."
+		exit	
+	fi
+	
+	fn_titulo "LIST LOG FROM APT - ACTION: $ACTION"
+
+	
+
+	IFS=$'\n'
+	case "${ACTION}" in
+		INSTALL|PURGE|REMOVE)
+			# Obtendo informações do terminal para dimensionamento das colunas da tabela de resulatados
+			COL_A=$(( $(fn_get_terminal_size) / 3 ))
+			COL_B=$((COL_A-5))
+			
+			printf " %-${COL_B}s | %-${COL_A}s | %-${COL_A}s\n" "PACKAGE" "VERSION" "OPERATION DATE"
+			fn_line
+
+			COUNT=0
+			NEW_LIST=""
+			# for I in $LIST; do
+			for I in $(echo -e "$LIST"); do
+				
+				COUNT=$(($COUNT+1))
+				PKG=$(echo "$I" | awk -F ";" '{print $4}')
+				VER=$(echo "$I" | awk -F ";" '{print $5}')
+				OPERATION_DATE=$(echo "$I" | awk -F ";" '{print $1}')
+				#PKG="$PKG ($OPERACAO)"
+				NEW_LIST="${NEW_LIST}$PKG|$VER_OLD|$VER_NEW|${OPERACAO}\n"
+				printf " %-${COL_B}s | %-${COL_A}s | %-${COL_A}s\n" "${PKG::${COL_B}}" "${VER::${COL_A}}" "${OPERATION_DATE::${COL_A}}" 
+			done
+
+		;;
+		UPGRADE)
+			# Obtendo informações do terminal para dimensionamento das colunas da tabela de resulatados
+			COL_A=$(( $(fn_get_terminal_size) / 4 ))
+			COL_B=$((COL_A-5))
+
+			printf " %-${COL_B}s | %-${COL_A}s | %-${COL_A}s | %-${COL_A}s\n" "PACKAGE" "OLD VERSION" "NEW VERSION" "OPERATION DATE"
+			fn_line
+			
+			COUNT=0
+			NEW_LIST=""
+			# for I in $LIST; do
+			for I in $(echo -e "$LIST"); do
+				
+				COUNT=$(($COUNT+1))
+				PKG=$(echo "$I" | awk -F ";" '{print $4}')
+				OLD_VER=$(echo "$I" | awk -F ";" '{print $5}')
+				NEW_VER=$(echo "$I" | awk -F ";" '{print $6}')
+				OPERATION_DATE=$(echo "$I" | awk -F ";" '{print $1}')
+				#PKG="$PKG ($OPERACAO)"
+				NEW_LIST="${NEW_LIST}$PKG|$VER_OLD|$VER_NEW|${OPERACAO}\n"
+				printf " %-${COL_B}s | %-${COL_A}s | %-${COL_A}s | %-${COL_A}s\n" "${PKG::${COL_B}}" "${OLD_VER::${COL_A}}" "${NEW_VER::${COL_A}}" "${OPERATION_DATE::${COL_A}}" 
+			done
+
+		;;
+	esac
+	
+
+#	printf " %-${COL_B}s | %-${COL_A}s | %-${COL_A}s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
+#	fn_line
+
+#	COUNT=0
+#	NEW_LIST=""
+#	for I in $LIST; do
+#		COUNT=$(($COUNT+1))
+#		PKG=$(echo "$I" | awk -F ";" '{print $4}')
+#		VER_OLD=$(echo "$I" | awk -F ";" '{print $5}')
+#		VER_NEW=$(echo "$I" | awk -F ";" '{print $6}')
+#		OPERACAO=$(echo "$I" | awk -F ";" '{print $4}')
+#		#PKG="$PKG ($OPERACAO)"
+#		NEW_LIST="${NEW_LIST}$PKG|$VER_OLD|$VER_NEW|${OPERACAO}\n"
+#		printf " %-${COL_B}s | %-${COL_A}s | %-${COL_A}s\n" "${PKG::${COL_B}}" "${VER_OLD::${COL_A}}" "${VER_NEW::${COL_A}}" 
+#	done
+	fn_line
+	NEW_LIST=$(echo -e "$NEW_LIST")
+
+	echo " $COUNT - Packages to update"
+	fn_get_timestamp_end
+
+	fn_line
+
+	#if [ -n "$LIST" ]; then
+
+	if [ -n "$NEW_LIST" -a "$ACTION" == "UPDATE" ]; then
+		fn_upgrade_from_list "$NEW_LIST"
+		return 0
+	else
+		return 1
+	fi
+}
 
 
 ###############################################################################
@@ -957,7 +1058,6 @@ function fn_upgrade_from_list ()
 	# liberando o cache e forçando o sistema a atualizar os dados de consultas
 	fn_release_cache	
 }
-
 
 function fn_upgrade_all ()
 {
@@ -1118,7 +1218,6 @@ function fn_upgrade_all ()
 		done
 	fi
 }
-
 
 function fn_update_packages_cve ()
 {
@@ -1297,7 +1396,6 @@ function fn_update_packages_cve ()
 	fi
 }
 
-
 function fn_menu_select_upgrade_by_urgency()
 {
 	# função que prapara o menu para seleção de pacotes para a realização de Rollback (restauração)
@@ -1351,7 +1449,6 @@ function fn_menu_select_upgrade_by_urgency()
 	IFS=$OLD_IFS
 }
 
-
 #===========================================================================
 # REPORT FUCNTIONS
 #===========================================================================
@@ -1400,7 +1497,6 @@ function fn_menu_report()
 	IFS=$OLD_IFS
 }
 
-
 function fn_report()
 {
 	
@@ -1438,26 +1534,23 @@ function fn_report()
 	fn_msg "[INFO] Press ENTER for return at report list!"	
 }
 
+#===========================================================================
+# HISTORY FUCNTIONS
+#===========================================================================
 
 function fn_get_resume_history()
 {
 	#cat $APT_LOG | egrep --color=auto "^([[:alpha:]])*:|Start-Date: ([[:digit:]]){4}-([[:digit:]]){2}-([[:digit:]]){2}  ([[:digit:]]){2}:([[:digit:]]){2}:([[:digit:]]){2}" -o | grep -v "Commandline:"| tr "\n" " " | sed 's/Start/\nStart/g' | grep -v "^$"
 	cat $APT_LOG | egrep --color=auto "^([[:alpha:]])*:|Start-Date: ([[:digit:]]){4}-([[:digit:]]){2}-([[:digit:]]){2}  ([[:digit:]]){2}:([[:digit:]]){2}:([[:digit:]]){2}" -o | grep -v "Commandline:"| tr "\n" " " | sed 's/Start/\nStart/g' | grep -v "^$" | tac
-
 }
 
 function fn_get_apt_history()
 {
-    #    OPTION="$1"
-    #    DATE="$2"
-    #    HOUR="$3"
-    #    INFO="$4"
-
-        OPTION="$1"
-        DATE="$2"
-        HOUR="$3"
-        INFO="$4"
-	
+    
+    OPTION="$1"
+    DATE="$2"
+    HOUR="$3"
+    INFO="$4"
 	
 	# Dentro dessa variável estão todos os eventos
 	#    LOG_INLINE=$(cat /var/log/apt/history.log | tr "\n" ";"| sed 's/Start/\nStart/g') 
@@ -1481,7 +1574,9 @@ function fn_get_apt_history()
 
 	fi
 	OLD_IFS=$' \t\n'
-	IFS=$'\n'	
+	IFS=$'\n'
+	T=""
+
 	for EVENT in $(echo "$RESULT" | grep -i "$FILTER"); do
 		START_DATE=$(echo "$EVENT" | egrep -o "Start-Date: ([[:digit:]]){4}-([[:digit:]]){2}-([[:digit:]]){2}  ([[:digit:]]){2}:([[:digit:]]){2}:([[:digit:]]){2}")
 		START_DATE=$(echo $START_DATE| awk -F" " '{print $2" "$3 }')
@@ -1495,11 +1590,6 @@ function fn_get_apt_history()
 		done
 		CMD_MULTILINE="echo \"$EVENT\" $FILTER"
 		EVENT_MULTILINE=$(eval "$CMD_MULTILINE")
-#		echo 
-		#echo "CMD_MULTILINE : $CMD_MULTILINE " # debug
-#		echo "$START_DATE - [$OPTION]"
-		#echo "DataFim   : $END_DATE"		# debug
-		#echo "Multiline : $EVENT_MULTILINE"	# debug
 		FILTER=""
 		# Retirando o tipo de operação de dentro dos registros
 		for F in Install Remove Purge Upgrade End-Date Error; do
@@ -1511,11 +1601,17 @@ function fn_get_apt_history()
 		#RESULT=$(echo "$EVENT_MULTILINE" | grep -i "${OPTION}:"|  sed 's/),/)\n/g' | sed 's/[),(]/;/g' | sed 's/ //g')
 		#echo "$EVENT_MULTILINE" | grep -i "$OPTION" # debug
 		## echo "$RESULT"
+
+		
 		for LINHA in $RESULT;do
 			#echo "$OPTION;$LINHA"
-			echo "$START_DATE;$END_DATE;$OPTION;$LINHA"
+			#echo "$START_DATE;$END_DATE;$OPTION;$LINHA"
+			T="${T}$(echo "$START_DATE;$END_DATE;$OPTION;$LINHA\n")"
+
 		done
 	done
+	#echo -e "$T"  ## DEBUG
+	fn_list_package_history "${OPTION}" "${T}"
 }
 
 function usage_menu_history()
@@ -1548,7 +1644,6 @@ function fn_menu_history()
 		esac
 fi
 }
-
 
 
 #===========================================================================
@@ -1605,7 +1700,6 @@ function fn_download_package_version()
 	done
 	return "$SAIDA"
 }
-
 
 function fn_execute_rollback()
 {
@@ -1676,7 +1770,6 @@ function fn_execute_rollback()
 	fi
 }
 
-
 function fn_menu_rollback()
 {
 	# função que prapara o menu para seleção de pacotes para a realização de Rollback (restauração)
@@ -1724,11 +1817,9 @@ function fn_menu_rollback()
 	IFS=$OLD_IFS
 }
 
-
 #===========================================================================
 # FUNCÃO PRINCIPAL
 #===========================================================================
-
 
 function fn_main()
 {
@@ -1799,7 +1890,6 @@ function fn_main()
 			fn_usage
 			;;
 	esac
-
 }
 
 # inicio do script
