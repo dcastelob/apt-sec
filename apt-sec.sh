@@ -16,33 +16,88 @@
 # VARIAVEIS DE CONTROLE
 ###############################################################################
 #export LANG=en_US.UTF-8
-export VERBOSE=no
-
-export TMP_DIR="/tmp"
-export FILE_CONTROL="$TMP_DIR/apt-sec.ctrl"
-export CVE_DB_FILE="$TMP_DIR/apt-sec.cvedb"
-export PKG_DB_FILE="$TMP_DIR/apt-sec.pkgdb"
-export CHANGE_LOGS_DB_FILE="$TMP_DIR/apt-sec.clogdb"
-
-export EXPIRED_CVE="600"
-export EXPIRED_UPDATE="600"
-export EXPIRED_CHANGELOG="3600"
-
-export ROLLBACK_PKG_DIR="/var/cache/apt/rollback"
-export ROLLBACK_PKG_DIR_OWNER="root"
-export APT_SEC_LOG="/var/log/apt-sec.log"
-
-export ROLLBACK_LIMITE=5
-export CVE_DB_LIMITE=10000
-export REPORTS_LIMITE=5
-
-export APT_LOG="/var/log/apt/history.log"
-
+export APT_SEC_CONF_FILE="apt-sec.conf"
 export PS3="[Choice]: "
+export APT_SEC_VERSION="1.01"
+
+#export VERBOSE=no
+
+#export TMP_DIR="/tmp"
+#export FILE_CONTROL="$TMP_DIR/apt-sec.ctrl"
+#export CVE_DB_FILE="$TMP_DIR/apt-sec.cvedb"
+#export PKG_DB_FILE="$TMP_DIR/apt-sec.pkgdb"
+#export CHANGE_LOGS_DB_FILE="$TMP_DIR/apt-sec.clogdb"
+
+#export EXPIRED_CVE="600"
+#export EXPIRED_UPDATE="600"
+#export EXPIRED_CHANGELOG="3600"
+
+#export ROLLBACK_PKG_DIR="/var/cache/apt/rollback"
+#export ROLLBACK_PKG_DIR_OWNER="root"
+#export APT_SEC_LOG="/var/log/apt-sec.log"
+
+#export ROLLBACK_LIMITE=5
+#export CVE_DB_LIMITE=10000
+#export REPORTS_LIMITE=5
+
+#export APT_LOG="/var/log/apt/history.log"
+
+
 
 ###############################################################################
 # FUNCOES ASSESSÓRIAS
 ###############################################################################
+
+function fn_get_data_conf()
+{
+	FIELD="$1"
+	cat "${APT_SEC_CONF_FILE}" | grep "${FIELD}" | awk -F "=" '{print $2}'| tr -d "	"
+}
+
+function fn_get_config()
+{
+	# Funcção para carregamento dos parametros do arquivo apt-sec.conf
+
+	export VERBOSE="$(fn_get_data_conf 'verbose')"
+	export TMP_DIR="$(fn_get_data_conf 'tmp_dir')" 
+	export FILE_CONTROL="${TMP_DIR}/$(fn_get_data_conf 'file_control')" 
+	export CVE_DB_FILE="${TMP_DIR}/$(fn_get_data_conf 'cve_db_file')" 
+	export PKG_DB_FILE="${TMP_DIR}/$(fn_get_data_conf 'pkg_db_file')" 
+	export CHANGE_LOGS_DB_FILE="${TMP_DIR}/$(fn_get_data_conf 'change_logs_db_file')" 
+
+	export EXPIRED_CVE="$(fn_get_data_conf 'expired_cve')" 
+	export EXPIRED_UPDATE="$(fn_get_data_conf 'expired_update')" 
+	export EXPIRED_CHANGELOG="$(fn_get_data_conf 'expired_changelog')" 
+
+	export ROLLBACK_PKG_DIR="$(fn_get_data_conf 'rollback_pkg_dir')" 
+	export ROLLBACK_PKG_DIR_OWNER="$(fn_get_data_conf 'rollback_pkg_dir_owner')" 
+	export APT_SEC_LOG="$(fn_get_data_conf 'apt_sec_log')" 
+
+	export ROLLBACK_LIMITE="$(fn_get_data_conf 'rollback_limite')" 
+	export CVE_DB_LIMITE="$(fn_get_data_conf 'cve_db_limite')" 
+	export REPORTS_LIMITE="$(fn_get_data_conf 'reports_limite')" 
+
+	export APT_LOG="$(fn_get_data_conf 'apt_log')"
+
+	for VAR in "$VERBOSE" "$TMP_DIR" "$FILE_CONTROL" "$CVE_DB_FILE" "$PKG_DB_FILE" "$CHANGE_LOGS_DB_FILE" "$EXPIRED_CVE" "$EXPIRED_UPDATE" "$EXPIRED_CHANGELOG" "$ROLLBACK_PKG_DIR" "$ROLLBACK_PKG_DIR_OWNER" "$APT_SEC_LOG" "$ROLLBACK_LIMITE" "$CVE_DB_LIMITE" "$REPORTS_LIMITE" "$APT_LOG" ;do
+		#echo ${VAR}
+		if [ -z "$VAR" ];then
+			fn_msg "[ERROR] Problem on config file, verify $APT_SEC_CONF_FILE file!"
+			exit 1
+		fi
+	done
+}
+
+function fn_version()
+{
+	echo
+	echo " Author : Diego Castelo Branco"
+	echo " Contact: dcastelob at gmail.com"
+	echo " System : apt-sec - version: $APT_SEC_VERSION - 2018-02-28"
+	echo
+
+
+}
 
 function fn_requiriments()
 {
@@ -86,7 +141,6 @@ function fn_requiriments()
 		fn_msg "apt-get update && apt-get -y install $PKG"
 		exit 1
 	fi
-
 }
 
 function fn_verifyRepeat()
@@ -105,7 +159,6 @@ function fn_verifyRepeat()
 		fi
 	done
 	return 1
-
 }
 
 function fn_isRoot()
@@ -170,18 +223,20 @@ function fn_usage()
 {
 	echo "Usage: $0 <option>"
 	echo "Options:"
-	echo " -h|--help        	 - Help commands"
-	echo " -l|--list        	 - List all packages upgradable"
-	echo " -s|--summary-list   	 - List summary for packages upgradable urgency based"
-	echo " -u|--urgency-list   	 - List all packages upgradable with urgency"
-	echo " -c|--cve-list    	 - List only packages with CVE associated"
-	echo " -a|--all-update     	 - Secure update for all packages upgradable"
-	echo " -C|--cve-update  	 - Secure update only packages with CVE associated detailed"
-	echo " -U|--urgency-update	 - Secure update only packages urgency filter"
-	echo " -r|--report   	 	 - Show apt-sec report off updates packages"
-	echo " -H|--history [option]   - Show apt history off updates packages"		
-	#echo " -R|--rollback    	 - Execute rollback old packages"	
-	echo " --renew-cache    	 - Renew cache for temp files"
+	echo " -h|--help        	  - Help commands"
+	echo " -l|--list        	  - List all packages upgradable"
+	echo " -s|--summary-list   	  - List summary for packages upgradable urgency based"
+	echo " -u|--urgency-list   	  - List all packages upgradable with urgency"
+	echo " -c|--cve-list    	  - List only packages with CVE associated"
+	echo " -a|--all-update     	  - Secure update for all packages upgradable"
+	echo " -C|--cve-update  	  - Secure update only packages with CVE associated detailed"
+	echo " -U|--urgency-update	  - Secure update only packages urgency filter"
+	echo " -r|--report   	 	  - Show apt-sec report off updates packages"
+	echo " -H|--history [option]	  - Show apt history from apt log file"
+	echo " -p|--pkg-history <pkg>	  - Show apt history from selected packages "
+	echo " -v|--version 		  - Show apt-sec version information"
+	#echo " -R|--rollback    	  - Execute rollback old packages"	
+	echo " --renew-cache    	  - Renew cache for temp files"
 	
 	echo
 
@@ -314,7 +369,7 @@ function fn_aptget_update()
 		# tempo maior que expirado
 		fn_msg "[INFO] apt-get update time expired..."
 		VERBOSE=$(echo "$VERBOSE" | tr "a-z" "A-Z")
-		fn_msg "[INFO] Update apt base (apt-get update) - Verbose Mode: $VERBOSE"
+		#fn_msg "[INFO] Update apt base (apt-get update) - Verbose Mode: $VERBOSE"
 		case "$VERBOSE" in
 			YES|1|TRUE)
 				apt-get update
@@ -705,7 +760,7 @@ function fn_list_package_upgradeble_formated()
 	fi
 
 	fn_titulo "LIST ALL PACKAGES UPGRADEBLE"
-	fn_line
+	#fn_line
 
 	#printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
 	printf " %-${COL_B}s | %-${COL_A}s | %-${COL_A}s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
@@ -889,7 +944,7 @@ function fn_list_package_history()
 		exit	
 	fi
 	
-	fn_titulo "LIST LOG FROM APT - ACTION: $ACTION"
+	fn_titulo "LIST LOG FROM APT - ACTION/FILTER = $ACTION"
 
 	
 
@@ -942,6 +997,29 @@ function fn_list_package_history()
 			done
 
 		;;
+		*)
+			# Caso utilizado para filtro de pacotes avulsos
+			# Obtendo informações do terminal para dimensionamento das colunas da tabela de resulatados
+			COL_A=$(( $(fn_get_terminal_size) / 4 ))
+			COL_B=$((COL_A-5))
+
+			printf " %-${COL_B}s | %-${COL_A}s | %-${COL_A}s | %-${COL_A}s\n" "PACKAGE" "OLD VERSION" "NEW VERSION" "OPERATION DATE"
+			fn_line
+			
+			COUNT=0
+			NEW_LIST=""
+			# for I in $LIST; do
+			for I in $(echo -e "$LIST"); do
+				
+				COUNT=$(($COUNT+1))
+				PKG=$(echo "$I" | awk -F ";" '{print $4}')
+				OLD_VER=$(echo "$I" | awk -F ";" '{print $5}')
+				NEW_VER=$(echo "$I" | awk -F ";" '{print $6}')
+				OPERATION_DATE=$(echo "$I" | awk -F ";" '{print $1}')
+				#PKG="$PKG ($OPERACAO)"
+				NEW_LIST="${NEW_LIST}$PKG|$VER_OLD|$VER_NEW|${OPERACAO}\n"
+				printf " %-${COL_B}s | %-${COL_A}s | %-${COL_A}s | %-${COL_A}s\n" "${PKG::${COL_B}}" "${OLD_VER::${COL_A}}" "${NEW_VER::${COL_A}}" "${OPERATION_DATE::${COL_A}}" 
+			done
 	esac
 	
 
@@ -1552,9 +1630,12 @@ function fn_get_apt_history()
     HOUR="$3"
     INFO="$4"
 	
+	echo "1:$1 2:$2"
 	# Dentro dessa variável estão todos os eventos
 	#    LOG_INLINE=$(cat /var/log/apt/history.log | tr "\n" ";"| sed 's/Start/\nStart/g') 
 	
+
+	# cat /var/log/apt/history.log | tr \"\n\" \";\"| sed 's/Start/\nStart/g'
 	CMD_LOG_INLINE="cat $APT_LOG | tr \"\n\" \";\"| sed 's/Start/\nStart/g'| grep -i \"${OPTION}:\""
 	# echo "CMD: $CMD_LOG_INLINE"  # debug
 	# Tudo em uma linha comecando por Start-Date
@@ -1614,11 +1695,89 @@ function fn_get_apt_history()
 	fn_list_package_history "${OPTION}" "${T}"
 }
 
+
+function fn_get_apt_history_package()
+{
+    
+    OPTION="$1"
+    DATE="$2"
+    HOUR="$3"
+    INFO="$4"
+	
+	#echo "1:$1 2:$2"
+	# Dentro dessa variável estão todos os eventos
+	#    LOG_INLINE=$(cat /var/log/apt/history.log | tr "\n" ";"| sed 's/Start/\nStart/g') 
+	
+
+	# cat /var/log/apt/history.log | tr \"\n\" \";\"| sed 's/Start/\nStart/g'
+	CMD_LOG_INLINE="cat $APT_LOG | tr \"\n\" \";\"| sed 's/Start/\nStart/g'| grep -i \"${OPTION}\""
+	# echo "CMD: $CMD_LOG_INLINE"  # debug
+	# Tudo em uma linha comecando por Start-Date
+	RESULT=$(eval $CMD_LOG_INLINE)
+	#echo "Result: $RESULT"   # debug
+	#DATE=$(echo $RESULT | egrep -o "Start-Date: ([[:digit:]]){4}-([[:digit:]]){2}-([[:digit:]]){2}  ([[:digit:]]){2}:([[:digit:]]){2}:([[:digit:]]){2}") 
+	#DATE=$(echo "$RESULT" | egrep -o "Start-Date: ([[:digit:]]){4}-([[:digit:]]){2}-([[:digit:]]){2}  ([[:digit:]]){2}:([[:digit:]]){2}:([[:digit:]]){2}") 
+	FILTER=""
+	if [ -n "$DATE" ];then
+		if [ -n "$HOUR" ];then
+			FILTER="$DATE  $HOUR"
+		else
+			FILTER="$DATE"
+		fi
+	else
+		FILTER=""
+
+	fi
+	OLD_IFS=$' \t\n'
+	IFS=$'\n'
+	T=""
+
+	for EVENT in $(echo "$RESULT" | grep -i "$FILTER"); do
+		START_DATE=$(echo "$EVENT" | egrep -o "Start-Date: ([[:digit:]]){4}-([[:digit:]]){2}-([[:digit:]]){2}  ([[:digit:]]){2}:([[:digit:]]){2}:([[:digit:]]){2}")
+		START_DATE=$(echo $START_DATE| awk -F" " '{print $2" "$3 }')
+		
+		END_DATE=$(echo "$EVENT" | egrep -o "End-Date: ([[:digit:]]){4}-([[:digit:]]){2}-([[:digit:]]){2}  ([[:digit:]]){2}:([[:digit:]]){2}:([[:digit:]]){2}")
+		END_DATE=$(echo $END_DATE| awk -F" " '{print $2" "$3  }')
+		FILTER=""
+		#for F in Install Remove Purge Upgrade End-Date; do
+		for F in Install Remove Purge Upgrade End-Date Error; do
+			FILTER="$FILTER | sed 's/$F:/\n$F:/g' "
+		done
+		CMD_MULTILINE="echo \"$EVENT\" $FILTER"
+		EVENT_MULTILINE=$(eval "$CMD_MULTILINE")
+		#echo "EVENT_MULTLINE: $EVENT_MULTILINE"
+		FILTER=""
+		# Retirando o tipo de operação de dentro dos registros
+		for F in Install Remove Purge Upgrade End-Date Error; do
+        	FILTER="$FILTER | sed 's/$F://g' "
+        done
+		CMD_MULTILINE="echo \"$EVENT_MULTILINE\" | grep -i \"${OPTION}\" ${FILTER} | sed 's/),/)\n/g' | sed 's/[),(]/;/g' | sed 's/ //g'"
+		#echo "CM: $CMD_MULTILINE"
+		RESULT=$(eval "$CMD_MULTILINE| grep -E \"^${OPTION}.*\;\""| grep -v "Start-Date")
+		#RESULT=$(echo "$EVENT_MULTILINE" | grep -i "${OPTION}:"|  sed 's/),/)\n/g' | sed 's/[),(]/;/g' | sed 's/ //g')
+		#echo "$EVENT_MULTILINE" | grep -i "$OPTION" # debug
+		#echo "$RESULT"
+
+		
+		for LINHA in $RESULT;do
+			#echo "$OPTION;$LINHA"
+			#echo "$START_DATE;$END_DATE;$OPTION;$LINHA"
+			T="${T}$(echo "$START_DATE;$END_DATE;$OPTION;$LINHA\n")"
+
+		done
+	done
+	echo -e "$T"  ## DEBUG
+	fn_list_package_history "${OPTION}" "${T}"
+}
+
+
 function usage_menu_history()
 {
+	echo
 	echo "Usage: $0 -H|--history <filter> [date] [hour]"
 	echo " Filters: date-only|install|remove|purge|upgrade"
 	echo " Data Format: \"YYYY-MM-DD\"  Hour Format: \"hh:mm:ss\""
+	echo
 }
 
 function fn_menu_history()
@@ -1649,7 +1808,6 @@ fi
 #===========================================================================
 # ROLLBACK FUCNTIONS
 #===========================================================================
-
 
 function fn_download_package_version()
 {
@@ -1829,6 +1987,9 @@ function fn_main()
 	# Verifca se é root
 	fn_isRoot "$@"
 
+	# Carrega as configurações de arquivo externo
+	fn_get_config
+
 
 	case "$OPT" in
 		
@@ -1871,7 +2032,11 @@ function fn_main()
 			;;
 		-H|--history)
 			fn_menu_history "$@"
-			;;		
+			;;
+		-p|--pkg-history)
+			shift
+			fn_get_apt_history_package "$1"
+			;; 
 
 		#-R|--rollback)
 		#	fn_menu_rollback
@@ -1884,6 +2049,9 @@ function fn_main()
 		-h|--help)
 			fn_usage
 			;;
+		-v|--version)
+			fn_version
+			;;	
 
 		*)
 			fn_msg "[ERROR] option $OPT not found!"
