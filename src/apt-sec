@@ -7,7 +7,7 @@
 # E-mail: dcastelob@gmail.com
 # Create: 25/08/2017
 # Update: 14/02/2018
-# Version: 1.00.0002
+# Version: 1.01
 #
 #################################################################################################################
 
@@ -451,7 +451,7 @@ function fn_locate_package_in_cve_details()
 ###############################################################################
 
 
-function fn_get_package_upgradeble()
+function fn_get_package_upgradable()
 {
 	# Função que gera uma lista simples de pacotes atualizáveis
 
@@ -465,7 +465,7 @@ function fn_get_package_upgradeble()
 	#printf "%-25s | %-15s | %-15s\n" "$PKG" "$VER_OLD" "$VER_NEW"
 }
 
-function fn_get_package_upgradeble_from_list()
+function fn_get_package_upgradable_from_list()
 {
 	# Função que gera uma lista simples de TODOS os pacotes atualizáveis passados como parametro
 
@@ -509,7 +509,7 @@ function fn_get_package_upgradeble_from_list()
 	echo "$PKG_COLLECTION" | sort -t"|" -k1 | uniq 
 }
 
-function fn_get_all_package_upgradeble()
+function fn_get_all_package_upgradable()
 {
 	# Função que gera uma lista simples de TODOS os pacotes atualizáveis
 
@@ -561,7 +561,7 @@ function fn_get_urgency_upgradable_data()
 	#export LANG="pt_BR.UTF-8"
 	RELACAO=""
 	#for PKG in $(apt-get upgrade -V --assume-no | grep "^ " | awk '{print $1}'); do
-	for PKG in $(fn_get_all_package_upgradeble | awk -F "|" '{print $1}'); do
+	for PKG in $(fn_get_all_package_upgradable | awk -F "|" '{print $1}'); do
 		#echo "PKG: $PKG"
 		VAL="$PKG : "
 		#fn_line
@@ -616,7 +616,7 @@ function fn_list_urgency_upgradable()
 
 	if [ -e "$CHANGE_LOGS_DB_FILE" ]; then
 
-		fn_titulo "LIST ALL PACKAGES UPGRADEBLE - URGENCY"
+		fn_titulo "LIST ALL PACKAGES UPGRADABLE - URGENCY"
 
 		fn_line
 		printf "%-10s  | %-50s\n" " URGENCY" "PACKAGE (Version) - Channel"
@@ -678,7 +678,7 @@ function fn_get_packages_dsa()
 ###############################################################################
 
 
-function fn_list_package_for_upgradeble_by_urgency()
+function fn_list_package_for_upgradable_by_urgency()
 {
 
 	# Função que gera uma lista formatada de pacotes atualizáveis recebida como parâmetro
@@ -698,7 +698,7 @@ function fn_list_package_for_upgradeble_by_urgency()
 
 	fn_titulo "LIST PACKAGES TO UPGRADE BY URGENCY = $OPT"
 
-	#LIST=$(fn_get_package_upgradeble_from_list "$PKG_LIST")
+	#LIST=$(fn_get_package_upgradable_from_list "$PKG_LIST")
 	LIST="$PKG_LIST"
 	fn_line
 	#printf " %-45s | %-25s | %-25s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
@@ -736,7 +736,7 @@ function fn_list_package_for_upgradeble_by_urgency()
 	fi
 }
 
-function fn_list_package_upgradeble_formated()
+function fn_list_package_upgradable_formated()
 {
 
 	# Função que gera uma lista formatada de pacotes atualizáveis e permite atualizar os pacotes listados
@@ -753,14 +753,14 @@ function fn_list_package_upgradeble_formated()
 
 	fn_aptget_update
 
-	LIST=$(fn_get_all_package_upgradeble)
+	LIST=$(fn_get_all_package_upgradable)
 
 	if [ -z  "$LIST" ]; then
 		fn_msg "[ERROR] No exist data for selection."
 		exit 0	
 	fi
 
-	fn_titulo "LIST ALL PACKAGES UPGRADEBLE"
+	fn_titulo "LIST ALL PACKAGES upgradable"
 	#fn_line
 
 	#printf " %-45s | %-${COL_FROM=}s | %-${COL_TO=}s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
@@ -813,7 +813,7 @@ function fn_list_urgency_upgradable_summary()
 
 	if [ -e "$CHANGE_LOGS_DB_FILE" ]; then
 
-		fn_titulo "SUMMARY OF PACKAGES UPGRADEBLE - URGENCY"
+		fn_titulo "SUMMARY OF PACKAGES UPGRADABLE - URGENCY"
 
 		printf " %-10s | %-50s\n" "TOTAL" "URGENCY"
 		fn_line
@@ -842,7 +842,7 @@ function fn_list_urgency_upgradable_summary()
 	fi
 }
 
-function fn_list_package_upgradeble_cve_formated()
+function fn_list_package_upgradable_cve_formated()
 {
 
 	# Função que gera uma lista formatada de pacotes atualizáveis que possuem CVE associado
@@ -873,14 +873,14 @@ function fn_list_package_upgradeble_cve_formated()
 
 	
 	
-	LIST=$(fn_get_all_package_upgradeble)
+	LIST=$(fn_get_all_package_upgradable)
 
 	if [ -z "$LIST" ];then
 		fn_msg "[ERROR] Packges from CVE file not found"
 		exit 0
 	fi
 	
-	fn_titulo "LIST ALL PACKAGES UPGRADEBLE - CVE"
+	fn_titulo "LIST ALL PACKAGES UPGRADABLE - CVE"
 
 	COUNT=0
 
@@ -1155,7 +1155,7 @@ function fn_upgrade_all ()
 	PKG_TO_UPDATE_FAIL_fn_msg=""
 
 
-	fn_list_package_upgradeble_formated
+	fn_list_package_upgradable_formated
 	RESP="$?"
 	if [ "$RESP" -eq 0 ];then
 		echo
@@ -1188,7 +1188,7 @@ function fn_upgrade_all ()
 
 	fi
 
-	LISTA=$(fn_get_package_upgradeble)
+	LISTA=$(fn_get_package_upgradable)
 	for ITEM in $LISTA; do
 		#echo "ITEM: $ITEM"
 		PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
@@ -1321,8 +1321,8 @@ function fn_update_packages_cve ()
 	PKG_TO_UPDATE_FAIL_fn_msg=""
 
 
-	#fn_list_package_upgradeble_formated
-	fn_list_package_upgradeble_cve_formated
+	#fn_list_package_upgradable_formated
+	fn_list_package_upgradable_cve_formated
 	RESP="$?"
 	if [ "$RESP" -eq 0 ];then
 		echo
@@ -1355,7 +1355,7 @@ function fn_update_packages_cve ()
 
 	fi
 
-	LISTA=$(fn_get_all_package_upgradeble)
+	LISTA=$(fn_get_all_package_upgradable)
 	for ITEM in $LISTA; do
 		#echo "ITEM: $ITEM"
 		PKG=$(echo "$ITEM" | awk -F "|" '{print $1}')
@@ -1520,9 +1520,9 @@ function fn_menu_select_upgrade_by_urgency()
 				#PKG_COLLECTION=$(cat "$CHANGE_LOGS_DB_FILE" | grep "$OPT"| cut -d" " -f1 | tr "\n" "|" | sed "s/|$//g" )
 				PKG_COLLECTION=$(cat "$CHANGE_LOGS_DB_FILE" | grep "$OPT"| cut -d" " -f1 )
 				echo "Colecao: $PKG_COLLECTION"
-				fn_list_package_for_upgradeble_by_urgency "$PKG_COLLECTION" "$OPT"
+				fn_list_package_for_upgradable_by_urgency "$PKG_COLLECTION" "$OPT"
 				exit 0
-				#fn_get_package_upgradeble_from_list "$PKG_COLLECTION"
+				#fn_get_package_upgradable_from_list "$PKG_COLLECTION"
 		esac
 	done
 	IFS=$OLD_IFS
@@ -1996,7 +1996,7 @@ function fn_main()
 		
 		-c|--cve-list)
 			# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
-			fn_list_package_upgradeble_cve_formated detail
+			fn_list_package_upgradable_cve_formated detail
 			;;
 		-u|--urgency-list)
 			fn_list_urgency_upgradable
@@ -2006,17 +2006,17 @@ function fn_main()
 			;;		
 
 		-l|--list)
-			fn_list_package_upgradeble_formated
+			fn_list_package_upgradable_formated
 			;;
 
 #		-t)
 #			#menu oculto para testes
-#			echo "XX fn_list_package_upgradeble_cve_formated"
-#			fn_list_package_upgradeble_cve_formated
+#			echo "XX fn_list_package_upgradable_cve_formated"
+#			fn_list_package_upgradable_cve_formated
 #			;;
 
 		-a|--all-update)
-			fn_list_package_upgradeble_formated "UPDATE"
+			fn_list_package_upgradable_formated "UPDATE"
 			#fn_upgrade_all
 			;;
 
