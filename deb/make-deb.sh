@@ -97,7 +97,8 @@ echo "[INFO] Ajustando arquivos de configuração"
 echo "[INFO] Construindo o pacote ${PKG_NAME}.${VERSION}.deb"
 
 rm -f ${PKG_NAME}.${VERSION}.deb
-dpkg-deb -b tmp/${PKG_NAME}-${VERSION} ${PKG_NAME}.${VERSION}.deb
+# gerando o pacote e apagando o temporário se obtiver suscesso
+dpkg-deb -b tmp/${PKG_NAME}-${VERSION} ${PKG_NAME}.${VERSION}.deb && rm -Rf "$(echo $PATH_BASE| cut -d'/' -f1 )"
 
 # Testando o pacote gerado
 echo "[INFO] Testando o pacote gerado ${PKG_NAME}.${VERSION}.deb"

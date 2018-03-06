@@ -1,7 +1,0 @@
-Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Name: apt-sec
-Contact: dcastelob@gmail.com 
-
-Files: DEBIAN/*
-Copyright: 2018 - Diego Castelo Branco <dcastelob@gmail.com>
-License: GPL-3
