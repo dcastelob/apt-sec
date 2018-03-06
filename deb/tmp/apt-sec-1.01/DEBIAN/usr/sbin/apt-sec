@@ -16,7 +16,7 @@
 # VARIAVEIS DE CONTROLE
 ###############################################################################
 #export LANG=en_US.UTF-8
-export APT_SEC_CONF_FILE="apt-sec.conf"
+export APT_SEC_CONF_FILE='/etc/apt-get/apt-sec.conf'
 export PS3="[Choice]: "
 export APT_SEC_VERSION="1.01"
 
@@ -1774,9 +1774,9 @@ function fn_get_apt_history_package()
 function usage_menu_history()
 {
 	echo
-	echo "Usage: $0 -H|--history <filter> [date] [hour]"
+	echo "Usage: $0 -H|--history <filter> [date] [time]"
 	echo " Filters: date-only|install|remove|purge|upgrade"
-	echo " Data Format: \"YYYY-MM-DD\"  Hour Format: \"hh:mm:ss\""
+	echo " Date format: \"YYYY-MM-DD\"  Time format: \"hh:mm:ss\""
 	echo
 }
 

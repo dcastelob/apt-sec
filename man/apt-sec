@@ -1,0 +1,99 @@
+.\" Manpage for apt-sec.
+.\" Contact dcastelob@gmail.com to correct errors or typos.
+.TH man 8 "05 Mar 2018" "VERSION" "apt-sec man page"
+.SH NAME
+apt-sec \- Management advanced updates for Debian packages.
+.SH SYNOPSIS
+apt-sec [-h|--help]|[ -l|--list]|[-s|--summary-list]|[-u|--urgency-list][-c|--cve-list]|[-a|--all-update]|[-C|--cve-update]|[-U|--urgency-update]|[-r|--report]|[-H|--history [option]]|[-p|--pkg-history <pkg>]|[-v|--version]|[--renew-cache]
+
+.SH DESCRIPTION
+The apt-sec tool has been developed to automate some patch management activities. Originally written in bash script, it uses the apt, apt-get, and aptitude suites tools themselves to build a mechanism that enables the traceability of updates and identify issues in a more manageable and efficient way for administrators.
+The apt-sec provides text-mode support for some of the features found in yum history. Initially apt-sec manages only the local server itself.
+
+.SH OPTIONS
+.PP
+.B -h|--help
+.RS 4 		
+Help command.
+.RE
+
+.B -l|--list
+.RS 4
+List all packages upgradable.
+.RE
+
+.B -s|--summary-list
+.RS 4
+List summary for packages upgradable urgency based.
+.RE
+
+.B -u|--urgency-list	
+.RS 4
+List all packages upgradable with urgency. Urgence changelog based.
+.RE
+
+.B -c|--cve-list
+.RS 4
+List only packages with CVE associated. Collect data from UDD.
+.RE
+
+.B -a|--all-update	
+.RS 4
+Secure update for all packages upgradable.
+.RE
+
+.B -C|--cve-update	
+.RS 4
+Secure update only packages with CVE associated. See "apt-sec -c".
+.RE
+
+.B -U|--urgency-update	
+.RS 4
+Secure update only packages urgency filter. See "apt-sec -u". 
+.RE
+
+
+.B -r|--report		
+.RS 4
+Show apt-sec report for updates packages.
+.RE
+
+.B -H|--history [option]	
+.RS 4
+Show apt history from apt log file.
+.RS 4 
+.B apt-sec -H|--history <filter> [date] [time]
+.PP
+\fB Filters:\fR date-only|install|remove|purge|upgrade
+.RS 2
+\fBdate-only\fR - select only operation date.
+\fBinstall|remove|purge|upgrade\fR - Select operations types (one at a time).
+.RE
+.PP
+\fB Date format:\fR "YYYY-MM-DD"  
+\fB Time format:\fR "hh:mm:ss"
+.RE
+.RE
+
+.B -p|--pkg-history <pkg>	
+.RS 4
+Show apt history from selected packages. 
+.RE
+
+.B -v|--version		
+.RS 4
+Show apt-sec version information.
+.RE
+
+.B --renew-cache		
+.RS 4
+Renew cache for temp files. Force apt-get update, get upgradable packages and collect all changelog for packages selected for upgradable.
+.RE
+.SH SEE ALSO
+apt-get(8), aptitude(8), apt(8) 
+
+.SH BUGS
+No known bugs.
+
+.SH AUTHOR
+Diego Castelo Branco (dcastelob@gmail.com)
