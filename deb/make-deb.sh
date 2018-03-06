@@ -16,9 +16,9 @@ PATH_CONF_BASE="${PATH_BASE}/DEBIAN"
 echo "[INFO] Limpando dados anteriores"
 if [ -d "$PATH_BASE" ]; then
 	rm -Rf "$PATH_BASE"
-	mkdir -p ${PATH_CONF_BASE}
+	 mkdir -p ${PATH_CONF_BASE}
 else
-	mkdir -p ${PATH_CONF_BASE}	
+	 mkdir -p ${PATH_CONF_BASE}	
 fi
 
 # Criando os arquivos de controle do pacote Debian
@@ -43,36 +43,55 @@ EOF
 
 cat <<EOF >"${PATH_CONF_BASE}/copyright"
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: ${PKG_NAME}
-Upstream-Contact: dcastelob@gmail.com 
+Name: ${PKG_NAME}
+Contact: dcastelob@gmail.com 
 
-Files: *
-Copyright: 2018 Diego Castelo Branco
-License: GPL-3.
+Files: DEBIAN/*
+Copyright: 2018 - Diego Castelo Branco <dcastelob@gmail.com>
+License: GPL-3
 EOF
+
+# Criando o arquivo de script de postinst
+
+cat <<EOF >"${PATH_CONF_BASE}/postinst"
+#!/bin/sh
+set -e
+mkdir -p /etc/apt-sec
+ln -sf ${DST_BIN_PATH}/apt-sec.conf /etc/apt-sec/apt-sec.conf
+chown -R root:root /etc/apt-sec
+#DEBHELPER#
+exit 0
+EOF
+
+chmod 755 "${PATH_CONF_BASE}/postinst"
 
 
 # Colocando o conteúdo no pacote .deb
 echo "[INFO] Montando pacote .deb"
 
-mkdir -p ${PATH_BASE}${DST_BIN_PATH}
-cp "${SRC_BIN_PATH}/apt-sec" ${PATH_BASE}${DST_BIN_PATH}
+ mkdir -p ${PATH_BASE}${DST_BIN_PATH}
+ cp "${SRC_BIN_PATH}/apt-sec" ${PATH_BASE}${DST_BIN_PATH}
+ chown -R root:root ${PATH_BASE}${DST_BIN_PATH}
 
-#chown root:root ${PATH_BASE}${DST_BIN_PATH}/apt-sec
-chmod 0755 ${PATH_BASE}${DST_BIN_PATH}/apt-sec
+ chown root:root ${PATH_BASE}${DST_BIN_PATH}/apt-sec
+ chmod 0755 ${PATH_BASE}${DST_BIN_PATH}/apt-sec
 
-mkdir -p ${PATH_BASE}/etc/apt-sec
-cp ${SRC_BIN_PATH}/apt-sec.conf  ${PATH_BASE}/etc/apt-sec/
+# mkdir -p ${PATH_BASE}/etc/apt-sec
+# cp ${SRC_BIN_PATH}/apt-sec.conf  ${PATH_BASE}/etc/apt-sec/
+cp ${SRC_BIN_PATH}/apt-sec.conf ${PATH_BASE}${DST_BIN_PATH}/
+# chown -R root:root ${PATH_BASE}/etc/apt-sec
+#chown -R root:root ${PATH_BASE}/etc/apt-sec
 
-mkdir -p ${PATH_BASE}/usr/local/man/man8/
+ mkdir -p ${PATH_BASE}/usr/local/man/man8/
 cp ${SRC_MAN_PATH}/apt-sec ${PATH_BASE}/usr/local/man/man8/apt-sec.8
-sed -i "s@VERSION@${VERSION}@" ${PATH_BASE}/usr/local/man/man8/apt-sec.8
+ sed -i "s@VERSION@${VERSION}@" ${PATH_BASE}/usr/local/man/man8/apt-sec.8
 gzip ${PATH_BASE}/usr/local/man/man8/apt-sec.8
+ chown -R root:root ${PATH_BASE}/usr/local/man/man8/
 
 # Alterando o caminho do arquivo de configuração
 echo "[INFO] Ajustando arquivos de configuração"
 
-sed -i "s@='apt-sec.conf'@='/etc/apt-sec/apt-sec.conf'@" ${PATH_BASE}${DST_BIN_PATH}/apt-sec
+ sed -i "s@='apt-sec.conf'@='/etc/apt-sec/apt-sec.conf'@" ${PATH_BASE}${DST_BIN_PATH}/apt-sec
 
 # Gerando o pacote .deb
 echo "[INFO] Construindo o pacote ${PKG_NAME}.${VERSION}.deb"

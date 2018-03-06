@@ -1,7 +1,7 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: apt-sec
-Upstream-Contact: dcastelob@gmail.com 
+Name: apt-sec
+Contact: dcastelob@gmail.com 
 
-Files: *
-Copyright: 2018 Diego Castelo Branco
-License: GPL-3.
+Files: DEBIAN/*
+Copyright: 2018 - Diego Castelo Branco <dcastelob@gmail.com>
+License: GPL-3

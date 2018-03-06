@@ -87,7 +87,7 @@ Show apt-sec version information.
 
 .B --renew-cache		
 .RS 4
-Renew cache for temp files. Force apt-get update, get upgradable packages and collect all changelog for packages selected for upgradable.
+Renew cache for database files. Force apt-get update, get upgradable packages and collect all changelog for packages selected for upgradable.
 .RE
 .SH SEE ALSO
 apt-get(8), aptitude(8), apt(8) 

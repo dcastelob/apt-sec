@@ -236,7 +236,7 @@ function fn_usage()
 	echo " -p|--pkg-history <pkg>	  - Show apt history from selected packages "
 	echo " -v|--version 		  - Show apt-sec version information"
 	#echo " -R|--rollback    	  - Execute rollback old packages"	
-	echo " --renew-cache    	  - Renew cache for temp files"
+	echo " --renew-cache    	  - Renew cache for database files"
 	
 	echo
 
@@ -244,6 +244,7 @@ function fn_usage()
 
 function fn_release_cache()
 {
+	# função que libera a base temporária de pacotes atualizaveis	
 	fn_download_cve_db
 	rm -f "$PKG_DB_FILE" && fn_msg "[INFO] Clear cache local for packages..."
 	
@@ -2008,11 +2009,11 @@ function fn_main()
 			fn_list_package_upgradeble_formated
 			;;
 
-		-t)
-			#menu oculto para testes
-			echo "XX fn_list_package_upgradeble_cve_formated"
-			fn_list_package_upgradeble_cve_formated
-			;;
+#		-t)
+#			#menu oculto para testes
+#			echo "XX fn_list_package_upgradeble_cve_formated"
+#			fn_list_package_upgradeble_cve_formated
+#			;;
 
 		-a|--all-update)
 			fn_list_package_upgradeble_formated "UPDATE"
@@ -2063,3 +2064,5 @@ function fn_main()
 # inicio do script
 fn_requiriments
 fn_main "$@"
+
+

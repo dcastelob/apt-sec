@@ -1,0 +1,7 @@
+#!/bin/sh
+set -e
+mkdir -p /etc/apt-sec
+ln -sf /usr/bin/apt-sec.conf /etc/apt-sec/apt-sec.conf
+chown -R root:root /etc/apt-sec
+#DEBHELPER#
+exit 0
