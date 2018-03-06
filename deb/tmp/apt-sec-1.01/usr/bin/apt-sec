@@ -16,7 +16,7 @@
 # VARIAVEIS DE CONTROLE
 ###############################################################################
 #export LANG=en_US.UTF-8
-export APT_SEC_CONF_FILE='/etc/apt-get/apt-sec.conf'
+export APT_SEC_CONF_FILE='/etc/apt-sec/apt-sec.conf'
 export PS3="[Choice]: "
 export APT_SEC_VERSION="1.01"
 
