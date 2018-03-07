@@ -86,7 +86,11 @@ function fn_get_config()
 			exit 1
 		fi
 	done
+
+	export CHANGELOGS="changelogs"
 }
+
+
 
 function fn_version()
 {
@@ -174,9 +178,15 @@ function fn_isDebian()
 	case "$VAL" in
 	DEBIAN)
 		fn_msg "[INFO] apt-sec for $OS_RELEASE"
+		return 0
 		;;
 	UBUNTU)
 		fn_msg "[WARNING] Some functions are not available for: $OS_RELEASE"	
+		return 1
+		;;
+	*)
+		fn_msg "[WARNING] Script valid for DEBAIN/UBUNTU: $OS_RELEASE"	
+		exit 2	
 	esac
 }
 
@@ -642,6 +652,8 @@ function fn_get_changelog_data()
 
 	fn_aptget_update
 	
+	fn_msg "[INFO] Get changelogs for packages upgradable"
+
 	RELACAO=""
 	#for PKG in $(apt-get upgrade -V --assume-no | grep "^ " | awk '{print $1}'); do
 	for PKG in $(fn_get_all_package_upgradable | awk -F "|" '{print $1}'); do
@@ -656,12 +668,16 @@ function fn_get_changelog_data()
 		export PAGER=cat
 		RESULTADO=$(aptitude changelog "$PKG" 2>/dev/null)
 		#echo "$RESULTADO"| head -n10
-
 		RESP="$?"
+		
+		if [ ! -d "${TMP_DIR}/${CHANGELOGS}" ];then
+			mkdir -p "${TMP_DIR}/${CHANGELOGS}"	
+		fi
+
 		if [ -z "$RESULTADO" ];then
-			echo "${VAL}Not found changelog for package $PKG; urgency=unknown" > "${TMP_DIR}/${PKG}.chlog"
+			echo "${VAL}Not found changelog for package $PKG; urgency=unknown" > "${TMP_DIR}/${CHANGELOGS}/${PKG}.chlog"
 		else
-			echo "$RESULTADO" > "${TMP_DIR}/${PKG}.chlog"
+			echo "$RESULTADO" > "${TMP_DIR}/${CHANGELOGS}/${PKG}.chlog"
 		fi
 	done
 	#fn_extract_cve_from_changelog	
@@ -673,7 +689,7 @@ function fn_extract_cve_from_changelog()
 	VAL=""
 	RELACAO=""
 
-	for FILE in $(ls ${TMP_DIR}/*.chlog); do
+	for FILE in $(ls ${TMP_DIR}/${CHANGELOGS}/*.chlog); do
 		LINE_LIMIT=$(cat -n "$FILE" | grep -m 1 "\-\-" | awk '{print $1}')
 
 		RESULTADO=$(head -n "${LINE_LIMIT}" "$FILE")
@@ -1114,7 +1130,7 @@ function fn_list_package_upgradable_cve_ubuntu()
 			if [ -z "${CVE}" ];then
 				continue
 			fi
-				
+
 			COUNT=$(($COUNT+1))
 			case "$FORMAT" in
 				detail)
@@ -2200,7 +2216,20 @@ function fn_main()
 		
 		-c|--cve-list)
 			# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
-			fn_list_package_upgradable_cve_formated detail
+			fn_isDebian
+			RESP="$?"
+			#echo "RESP: $RESP"
+			case "$RESP" in
+				0) 
+					fn_list_package_upgradable_cve_formated detail
+					;;
+				1)
+					fn_get_changelog_data
+					fn_extract_cve_from_changelog
+					fn_list_package_upgradable_cve_ubuntu
+					;;
+
+			esac
 			;;
 		-u|--urgency-list)
 			fn_list_urgency_upgradable
