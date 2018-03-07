@@ -4,7 +4,7 @@
 .SH NAME
 apt-sec \- Management advanced updates for Debian packages.
 .SH SYNOPSIS
-apt-sec [-h|--help]|[ -l|--list]|[-s|--summary-list]|[-u|--urgency-list][-c|--cve-list]|[-a|--all-update]|[-C|--cve-update]|[-U|--urgency-update]|[-r|--report]|[-H|--history [option]]|[-p|--pkg-history <pkg>]|[-v|--version]|[--renew-cache]
+apt-sec [-h|--help]|[ -l|--list]|[-s|--summary-list]|[-u|--urgency-list][-c|--cve-list]|[-a|--all-update]|[-C|--cve-update]|[-U|--urgency-update]|[-r|--report]|[-H|--history [option]]|[-p|--pkg-history [pkg]]|[-v|--version]|[--renew-cache]
 
 .SH DESCRIPTION
 The apt-sec tool has been developed to automate some patch management activities. Originally written in bash script, it uses the apt, apt-get, and aptitude suites tools themselves to build a mechanism that enables the traceability of updates and identify issues in a more manageable and efficient way for administrators.
@@ -75,7 +75,7 @@ Show apt history from apt log file.
 .RE
 .RE
 
-.B -p|--pkg-history <pkg>	
+.B -p|--pkg-history [pkg]	
 .RS 4
 Show apt history from selected packages. 
 .RE

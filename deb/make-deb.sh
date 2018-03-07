@@ -30,7 +30,7 @@ Version: ${VERSION}
 Priority:
 Architecture: all
 Essential:
-Depends: bsdmainutils (>= 8.0), aptitude (>=0.8.0), postgresql-client-common (>=8.0)
+Depends: bsdmainutils (>= 8.0), aptitude (>=0.1.0.0), postgresql-client-common (>=8.0)
 Pre-depends:
 Suggests:
 Installed-Size:

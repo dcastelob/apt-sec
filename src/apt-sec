@@ -95,8 +95,13 @@ function fn_version()
 	echo " Contact: dcastelob at gmail.com"
 	echo " System : apt-sec - version: $APT_SEC_VERSION - 2018-02-28"
 	echo
+}
 
-
+function fn_require_reboot()
+{
+	if [ -f /var/run/reboot-required ]; then
+  		fn_msg "[WARNING] System reboot required"
+	fi
 }
 
 function fn_requiriments()
@@ -161,6 +166,20 @@ function fn_verifyRepeat()
 	return 1
 }
 
+function fn_isDebian()
+{
+	OS_RELEASE=$(cat /etc/*release* | grep "PRETTY_NAME" | cut -d "=" -f2)
+
+	VAL=$(echo "$OS_RELEASE" | grep -uoEi "DEBIAN|UBUNTU" | tr "a-z" "A-Z" | uniq)
+	case "$VAL" in
+	DEBIAN)
+		fn_msg "[INFO] apt-sec for $OS_RELEASE"
+		;;
+	UBUNTU)
+		fn_msg "[WARNING] Some functions are not available for: $OS_RELEASE"	
+	esac
+}
+
 function fn_isRoot()
 {
 	# Função que verifica se o usuário tem privilegios de superusuário
@@ -177,13 +196,13 @@ function fn_msg()
 {
 	# Função para apresentação de notificações no terminal de forma colorida
 
-	TIPO=$(echo "$1"| grep -oiE "FAIL|ERROR|INFO|ABORTED")
+	TIPO=$(echo "$1"| grep -oiE "FAIL|ERROR|INFO|ABORTED|WARNING")
 	#echo "${TIPO}"
 	case $TIPO in
-		FAIL|ERROR|ABORTED)
+		FAIL|ERROR|ABORTED|WARNING)
 		echo -e "\033[01;31m${1}\033[00;37m"
 		;;
-		"INFO")
+		INFO)
 		echo -e "\033[01;34m${1}\033[00;37m"
 		;;
 		*)
@@ -206,6 +225,7 @@ function fn_line()
 
 function fn_titulo()
 {
+	# Função que desenha o título da janela
 	fn_msg="$1"
 	fn_line
 	#echo
@@ -216,6 +236,7 @@ function fn_titulo()
 
 function fn_get_terminal_size()
 {
+	# função que captura o tamanho do terminal para auxiliar o desenho das janelas
 	echo $(($(tput cols)-2))
 }
 
@@ -233,7 +254,7 @@ function fn_usage()
 	echo " -U|--urgency-update	  - Secure update only packages urgency filter"
 	echo " -r|--report   	 	  - Show apt-sec report off updates packages"
 	echo " -H|--history [option]	  - Show apt history from apt log file"
-	echo " -p|--pkg-history <pkg>	  - Show apt history from selected packages "
+	echo " -p|--pkg-history [pkg]	  - Show apt history from selected packages "
 	echo " -v|--version 		  - Show apt-sec version information"
 	#echo " -R|--rollback    	  - Execute rollback old packages"	
 	echo " --renew-cache    	  - Renew cache for database files"
@@ -241,11 +262,17 @@ function fn_usage()
 	echo
 
 }
+function fn_release_changelogs_db()
+{
+	# Função para limpar cache apos operações com pacotes baseados na urgencia
+	rm -f "$CHANGE_LOGS_DB_FILE" && fn_msg "[INFO] Renew cache local for changelogs..."
+}
 
 function fn_release_cache()
 {
 	# função que libera a base temporária de pacotes atualizaveis	
 	fn_download_cve_db
+	fn_release_changelogs_db
 	rm -f "$PKG_DB_FILE" && fn_msg "[INFO] Clear cache local for packages..."
 	
 }
@@ -292,6 +319,7 @@ function fn_update_apt_log()
 
 function fn_get_timestamp_begin()
 {
+	# Função para registrar o inicio da operação
 	export TIMESTAMP_BEGIN=$(date +%s)
 }
 
@@ -368,7 +396,7 @@ function fn_aptget_update()
 
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
-		fn_msg "[INFO] apt-get update time expired..."
+		#fn_msg "[INFO] apt-get update time expired..."
 		VERBOSE=$(echo "$VERBOSE" | tr "a-z" "A-Z")
 		#fn_msg "[INFO] Update apt base (apt-get update) - Verbose Mode: $VERBOSE"
 		case "$VERBOSE" in
@@ -608,6 +636,83 @@ function fn_get_urgency_upgradable_data()
 	fi
 }
 
+function fn_get_changelog_data()
+{
+	# Função que coleta changelogs dos pacotes e salva a relação em um arquivo temporário
+
+	fn_aptget_update
+	
+	RELACAO=""
+	#for PKG in $(apt-get upgrade -V --assume-no | grep "^ " | awk '{print $1}'); do
+	for PKG in $(fn_get_all_package_upgradable | awk -F "|" '{print $1}'); do
+		VAL="$PKG : "
+		if [ -e "$CHANGE_LOGS_DB_FILE" ];then
+		# Se ja existe arquivo de cache local
+		
+			fn_verify_expired "changelog"
+			RESP="$?"
+
+		fi
+		export PAGER=cat
+		RESULTADO=$(aptitude changelog "$PKG" 2>/dev/null)
+		#echo "$RESULTADO"| head -n10
+
+		RESP="$?"
+		if [ -z "$RESULTADO" ];then
+			echo "${VAL}Not found changelog for package $PKG; urgency=unknown" > "${TMP_DIR}/${PKG}.chlog"
+		else
+			echo "$RESULTADO" > "${TMP_DIR}/${PKG}.chlog"
+		fi
+	done
+	#fn_extract_cve_from_changelog	
+		
+}
+
+function fn_extract_cve_from_changelog()
+{
+	VAL=""
+	RELACAO=""
+
+	for FILE in $(ls ${TMP_DIR}/*.chlog); do
+		LINE_LIMIT=$(cat -n "$FILE" | grep -m 1 "\-\-" | awk '{print $1}')
+
+		RESULTADO=$(head -n "${LINE_LIMIT}" "$FILE")
+		RESP="$?"
+		
+		echo "$RESULTADO"| grep -i "^Err" &>/dev/null
+		ERROR=$?
+		
+		TEXT=$(echo "$RESULTADO" | tr "\n" " ")
+		
+		CVE_CODE_1=$(head -n "${LINE_LIMIT}" "$FILE" | grep -Eio "CVE-([0-9]){4,6}-([0-9]){1,7}")
+		CVE_CODE=$(echo "$CVE_CODE_1"| tr "\n" ",")
+		
+
+		if [  "$ERROR" -eq 0 ];then
+			PKG_URG="$(echo "$PKG; urgency=unknown;")"
+
+		elif [ "$RESP" -eq 0 ];then
+			PKG_URG="$(echo "$RESULTADO"| head -n2 | tail -n1 | tr -d "\n")"
+			
+		else
+			PKG_URG="$(echo "$PKG; urgency=unknown;")"
+		fi
+		
+		VAL="${PKG_URG};${CVE_CODE};${TEXT};"
+		#Acumulando a lista
+		RELACAO="${RELACAO}${VAL}\n"
+
+		# echo "FILE: $FILE, LINE: $LINE_LIMIT, CVE: $CVE_CODE, VAL: $VAL,  RESULTADO: $TEXT,"   #DEBUG
+		# echo "FILE: $FILE, LINE: $LINE_LIMIT, PKG_URG: ${PKG_URG} CVE: $CVE_CODE"   #DEBUG		
+
+	done
+	
+	# Atualizando 
+	echo -e "$RELACAO" | sort -t ";" -k 2 | uniq | grep -v ^$ > "${CHANGE_LOGS_DB_FILE}.v2" && fn_update_time "changelog"
+	#echo -e "$RELACAO"  | sort -t ";" -k 2 | uniq | grep -v ^$ | awk -F ";" '{print $1";"$4}' > "${CHANGE_LOGS_DB_FILE}.v2" && fn_update_time "changelog"
+}
+
+
 function fn_list_urgency_upgradable()
 {
 	# Função que apresenta os pacotes a serem atualizados com as informações de urgência
@@ -813,6 +918,12 @@ function fn_list_urgency_upgradable_summary()
 
 	if [ -e "$CHANGE_LOGS_DB_FILE" ]; then
 
+		DATA=$(cat "$CHANGE_LOGS_DB_FILE")
+		if [ -z  "$DATA" ]; then
+			fn_msg "[ERROR] No exist data for selection."
+			exit 0	
+		fi
+
 		fn_titulo "SUMMARY OF PACKAGES UPGRADABLE - URGENCY"
 
 		printf " %-10s | %-50s\n" "TOTAL" "URGENCY"
@@ -856,14 +967,14 @@ function fn_list_package_upgradable_cve_formated()
 
 	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
-		fn_msg "[INFO] CVE base expired"
+		fn_msg "[INFO] CVE database expired"
 
 		# obtendo dados do UDD
 		fn_download_cve_db "$CODENOME" && fn_update_time "cve"
 	fi
 
 	if [ ! -e "$CVE_DB_FILE" ]; then
-		fn_msg "[INFO] CVE file not found"
+		fn_msg "[INFO] CVE database not found"
 
 		# obtendo dados do UDD
 		fn_download_cve_db "$CODENOME" && fn_update_time "cve"
@@ -913,6 +1024,111 @@ function fn_list_package_upgradable_cve_formated()
 					;;
 			esac
 		fi
+	done
+	fn_line
+
+	echo " $COUNT - Packages to update"
+	fn_get_timestamp_end
+
+	fn_line
+
+	if [ "$COUNT" -ne 0  ]; then
+		return 0
+	else
+		return 1
+	fi
+}
+
+function fn_list_package_upgradable_cve_ubuntu()
+{
+
+	# Função que gera uma lista formatada de pacotes atualizáveis que possuem CVE associado
+
+	fn_get_timestamp_begin
+
+	FORMAT="$1"
+
+	COL_A=$(( $(fn_get_terminal_size) / 6 ))
+	COL_B=$((2*$COL_A))
+	#COL_B=$9((3*COL_A))-$(fn_get_terminal_size))
+
+#	fn_verify_expired "cve"
+#	RESP="$?"
+
+#	if [ "$RESP" -eq 0  ]; then
+		# tempo maior que expirado
+#		fn_msg "[INFO] CVE database expired"
+
+		# obtendo dados do UDD
+#		fn_download_cve_db "$CODENOME" && fn_update_time "cve"
+#	fi
+
+#	if [ ! -e "$CVE_DB_FILE" ]; then
+#		fn_msg "[INFO] CVE database not found"
+
+		# obtendo dados do UDD
+#		fn_download_cve_db "$CODENOME" && fn_update_time "cve"
+#	fi
+	
+#	fn_aptget_update
+
+	
+	
+#	LIST=$(fn_get_all_package_upgradable)
+	IFS_OLD="$IFS"
+	IFS=$'\n'
+
+	#LIST="$(cat /tmp/apt-sec.clogdb.v2|awk -F ";" '{print $1}')"
+	LIST="$(cat /tmp/apt-sec.clogdb.v2)"
+
+#	echo "$LIST"
+
+	if [ -z "$LIST" ];then
+		fn_msg "[ERROR] Packges from CVE file not found"
+		exit 0
+	fi
+	
+	fn_titulo "LIST ALL PACKAGES UPGRADABLE - CVE - UBUNTU"
+
+	COUNT=0
+
+	#printf " %-16s | %-16s | %-25s | %-10s %s\n" "PACKAGE" "VERSION" "SEVERITY" "CVE              "
+	printf " %-${COL_A}s | %-${COL_A}s | %-${COL_A}s | %-${COL_A}s\n" "PACKAGE" "VERSION" "SEVERITY" "CVE              "
+	fn_line
+
+	for I in $LIST; do
+
+#		PKG=$(echo "$I" | awk -F "|" '{print $1}')
+
+#		RESULTADO=$(fn_locate_package_in_cve "$PKG")
+#		RESP="$?"
+#		if [ "$RESP" -eq 0 ]; then
+			
+			PKG=$(echo "$I" | awk -F ";" '{print $1}'| cut -d "(" -f1)
+			VERSION=$(echo "$I" | awk -F ";" '{print $1}'| cut -d "(" -f2| cut -d ")" -f1)
+			#VERSION=$(echo "$RESULTADO" | awk -F "|" '{print $4}'| sed 's/ //g')
+			SEVERITY=$(echo "$I" | awk -F ";" '{print $2}' | cut -d "=" -f2)
+			CVE=$(echo "$I" | awk -F ";" '{print $3}'| sed 's/ //g'| sed "s/,$//g")
+			DESCRIPTION=$(echo "$I" | awk -F ";" '{print $4}')
+
+			if [ -z "${CVE}" ];then
+				continue
+			fi
+				
+			COUNT=$(($COUNT+1))
+			case "$FORMAT" in
+				detail)
+					printf " %-16s | %-16s | %-25s | %-10s \n"   "$PKG" "$VERSION" "$SEVERITY" "$CVE"
+					fn_line
+					printf " DESCRIPTION: %-s \n" "$DESCRIPTION"
+					fn_line "="
+					;;
+				*)
+					printf " %-${COL_A}s | %-${COL_A}s | %-${COL_A}s | %-${COL_A}s\n" "${PKG::${COL_B}}" "${VERSION::${COL_A}}" "${SEVERITY::${COL_A}}" "${CVE::${COL_B}}"
+					#printf " %-16s | %-16s | %-25s | %-10s %s\n"  "$PKG" "$VERSION" "$SEVERITY" "$CVE"
+					;;
+			esac
+#		fi
 	done
 	fn_line
 
@@ -1024,21 +1240,7 @@ function fn_list_package_history()
 	esac
 	
 
-#	printf " %-${COL_B}s | %-${COL_A}s | %-${COL_A}s\n" "PACKAGE" "FROM VERSION" "TO VERSION"
-#	fn_line
 
-#	COUNT=0
-#	NEW_LIST=""
-#	for I in $LIST; do
-#		COUNT=$(($COUNT+1))
-#		PKG=$(echo "$I" | awk -F ";" '{print $4}')
-#		VER_OLD=$(echo "$I" | awk -F ";" '{print $5}')
-#		VER_NEW=$(echo "$I" | awk -F ";" '{print $6}')
-#		OPERACAO=$(echo "$I" | awk -F ";" '{print $4}')
-#		#PKG="$PKG ($OPERACAO)"
-#		NEW_LIST="${NEW_LIST}$PKG|$VER_OLD|$VER_NEW|${OPERACAO}\n"
-#		printf " %-${COL_B}s | %-${COL_A}s | %-${COL_A}s\n" "${PKG::${COL_B}}" "${VER_OLD::${COL_A}}" "${VER_NEW::${COL_A}}" 
-#	done
 	fn_line
 	NEW_LIST=$(echo -e "$NEW_LIST")
 
@@ -1102,7 +1304,7 @@ function fn_upgrade_from_list ()
 
 			*)
 				fn_msg "[ERROR] Invalid option"
-				fn_msg "[ERROR] Operation aborted!"
+				fn_msg "[ABORTED] Operation aborted!"
 				exit 1
 				;;
 		esac
@@ -1178,7 +1380,7 @@ function fn_upgrade_all ()
 
 			*)
 				fn_msg "[ERROR] Invalid option"
-				fn_msg "[ERROR] Operation aborted!"
+				fn_msg "[ABORTED] Operation aborted!"
 				exit 1
 				;;
 		esac
@@ -1219,7 +1421,8 @@ function fn_upgrade_all ()
 		fn_msg "[ERROR] Packages: $PKG_TO_UPDATE_FAIL_fn_msg"
 		echo
 
-		read -p "[QUESTION] Existem pacotes que não podemos garantir o rollback. Deseja prosseguir mesmo assim? (y/n/a) [a]: " RESP
+		#read -p "[QUESTION] Existem pacotes que não podemos garantir o rollback. Deseja prosseguir mesmo assim? (y/n/a) [a]: " RESP
+		read -p "[QUESTION] There are packages that we can not guarantee rollback. Do you want to proceed anyway? (y/n/a) [a]: " RESP
 	    RESP=$(echo "${RESP:-"A"}")
     	RESP=$(echo $RESP| tr [a-z] [A-Z])
 
@@ -1227,7 +1430,7 @@ function fn_upgrade_all ()
     	case $RESP in
 			Y|S)
 				# sim
-				fn_msg "[INFO] Segue com pacotes sem suporte a Rollback"
+				fn_msg "[INFO] Packages without rollback support"
 				#echo "Pacotes válidos: $PKG_TO_UPDATE"
 				#echo "Pacotes inválidos: $PKG_TO_UPDATE_FAIL"
 				## Juntando todos os
@@ -1281,7 +1484,7 @@ function fn_upgrade_all ()
 				;;
 			*)
 				fn_msg "[ERROR] Invalid option"
-				fn_msg "[ERROR] Operation aborted!"
+				fn_msg "[ABORTED] Operation aborted!"
 		esac
 
 	else
@@ -1339,13 +1542,13 @@ function fn_update_packages_cve ()
 
 			N)
 				# não
-				fn_msg "[INFO] Operation aborted!"
+				fn_msg "[ABORTED] Operation aborted!"
 				exit 1
 				;;
 
 			*)
 				fn_msg "[FAIL] Invalid option"
-				fn_msg "[INFO] Operation aborted!"
+				fn_msg "[ABORTED] Operation aborted!"
 				exit 1
 				;;
 		esac
@@ -1391,7 +1594,8 @@ function fn_update_packages_cve ()
 		fn_msg "[ERROR] Packages: $PKG_TO_UPDATE_FAIL_fn_msg"
 		echo
 
-		read -p "[QUESTION] Existem pacotes que não podemos garantir o rollback. Deseja prosseguir mesmo assim? (y/n/a) [a]: " RESP
+		#read -p "[QUESTION] Existem pacotes que não podemos garantir o rollback. Deseja prosseguir mesmo assim? (y/n/a) [a]: " RESP
+		read -p "[QUESTION] There are packages that we can not guarantee rollback. Do you want to proceed anyway? (y/n/a) [a]: " RESP
 	    RESP=$(echo "${RESP:-"A"}")
     	RESP=$(echo $RESP| tr [a-z] [A-Z])
 
@@ -1399,7 +1603,7 @@ function fn_update_packages_cve ()
     	case $RESP in
 			Y|S)
 				# sim
-				echo "Segue com pacotes sem suporte a Rollback"
+				echo "Packages without rollback support"
 				#echo "Pacotes válidos: $PKG_TO_UPDATE"
 				#echo "Pacotes inválidos: $PKG_TO_UPDATE_FAIL"
 				## Juntando todos os
@@ -1432,11 +1636,13 @@ function fn_update_packages_cve ()
 					fi
 				done
 
+				# Solicitando novo cache do 
+				fn_release_cache
 				;;
 
 			N)
 				# não
-				echo "Segue apenas com os pacotes com suporte a Rollback"
+				echo "Install only packages with rollback support."
 				#echo "Pacotes válidos: $PKG_TO_UPDATE"
 
 				for ITEM in $PKG_COLLECTION; do
@@ -1453,11 +1659,10 @@ function fn_update_packages_cve ()
 				done
 				;;
 			A)
-				echo "Operation aborted!"
+				fn_msg " [ABORTED] Operation aborted!"
 				;;
 			*)
-				echo "Invalid option"
-				echo "Operation aborted!"
+				fn_msg " [ABORTED] Invalid option. Operation aborted!"
 		esac
 	else
 		for ITEM in $PKG_COLLECTION; do
@@ -1620,7 +1825,7 @@ function fn_report()
 function fn_get_resume_history()
 {
 	#cat $APT_LOG | egrep --color=auto "^([[:alpha:]])*:|Start-Date: ([[:digit:]]){4}-([[:digit:]]){2}-([[:digit:]]){2}  ([[:digit:]]){2}:([[:digit:]]){2}:([[:digit:]]){2}" -o | grep -v "Commandline:"| tr "\n" " " | sed 's/Start/\nStart/g' | grep -v "^$"
-	cat $APT_LOG | egrep --color=auto "^([[:alpha:]])*:|Start-Date: ([[:digit:]]){4}-([[:digit:]]){2}-([[:digit:]]){2}  ([[:digit:]]){2}:([[:digit:]]){2}:([[:digit:]]){2}" -o | grep -v "Commandline:"| tr "\n" " " | sed 's/Start/\nStart/g' | grep -v "^$" | tac
+	cat $APT_LOG | egrep --color=auto "^([[:alpha:]])*:|Start-Date: ([[:digit:]]){4}-([[:digit:]]){2}-([[:digit:]]){2}  ([[:digit:]]){2}:([[:digit:]]){2}:([[:digit:]]){2}" -o | grep -v "Commandline:"| tr "\n" " " | sed 's/Start/\nStart/g' | grep -v "^$" #| tac
 }
 
 function fn_get_apt_history()
@@ -1631,7 +1836,6 @@ function fn_get_apt_history()
     HOUR="$3"
     INFO="$4"
 	
-	echo "1:$1 2:$2"
 	# Dentro dessa variável estão todos os eventos
 	#    LOG_INLINE=$(cat /var/log/apt/history.log | tr "\n" ";"| sed 's/Start/\nStart/g') 
 	
@@ -1818,7 +2022,7 @@ function fn_download_package_version()
 	SAIDA=0
 
 	#echo "%$PKG%$VERSION%"
-	if [ ! -d $ROLLBACK_PKG_DIR ];then
+	if [ ! -d "$ROLLBACK_PKG_DIR" ];then
 		mkdir "$ROLLBACK_PKG_DIR"
 		chown root:root "$ROLLBACK_PKG_DIR"
 	fi
@@ -1837,18 +2041,18 @@ function fn_download_package_version()
 		if [ -n "$LOCALIZA" ];then
 			#cp "${PKG}_${VERSION}_*.deb" "$ROLLBACK_PKG_DIR/"
 			cp "/var/cache/apt/archive/${TMP_PKG}_${TMP_OLD_VER}_*.deb" "$ROLLBACK_PKG_DIR/"
-			fn_msg "[INFO] Pacote: ${TMP_PKG}_${TMP_OLD_VER} (existente no archives) foi arquivado para rollback em: $ROLLBACK_PKG_DIR"
+			fn_msg "[INFO] Package: ${TMP_PKG}_${TMP_OLD_VER} (no exist in archives) downloaded and archived to rollback in: $ROLLBACK_PKG_DIR"
 		else
 			#apt-get download "$PKG"="$VERSION" 2> /dev/null
 			apt-get download "${TMP_PKG}"="${TMP_OLD_VER}" 2> /dev/null
 			RESULT="$?"
 			#echo "DOWNLOAD RESULT: $RESULT"   #DEBUG
 			if [ "$RESULT" -eq 0 ];then
-				fn_msg "[INFO] Pacote: ${TMP_PKG}_${TMP_OLD_VER} baixado e arquivado para rollback em: $ROLLBACK_PKG_DIR"
+				fn_msg "[INFO] Package: ${TMP_PKG}_${TMP_OLD_VER} downloaded and archived to rollback in: $ROLLBACK_PKG_DIR"
 				#return 0
 				RETORNO=0
 			else
-				fn_msg "[ERROR] Problemas ao baixar pacote: ${TMP_PKG}_${TMP_OLD_VER} para rollback em: $ROLLBACK_PKG_DIR"
+				fn_msg "[ERROR] Problems for downlaod package: ${TMP_PKG}_${TMP_OLD_VER} para rollback em: $ROLLBACK_PKG_DIR"
 				RETORNO=1
 			fi
 		fi
@@ -2009,11 +2213,13 @@ function fn_main()
 			fn_list_package_upgradable_formated
 			;;
 
-#		-t)
-#			#menu oculto para testes
-#			echo "XX fn_list_package_upgradable_cve_formated"
-#			fn_list_package_upgradable_cve_formated
-#			;;
+		-t)
+			#menu oculto para testes
+			echo "fn_get_changelog_data"
+			#fn_get_changelog_data
+			fn_extract_cve_from_changelog
+			fn_list_package_upgradable_cve_ubuntu
+			;;
 
 		-a|--all-update)
 			fn_list_package_upgradable_formated "UPDATE"
@@ -2044,7 +2250,7 @@ function fn_main()
 		#	;;
 		--renew-cache)
 			fn_release_cache
-			rm -f "$CHANGE_LOGS_DB_FILE" && fn_msg "[INFO] Clear cache local for changelogs..."
+			#rm -f "$CHANGE_LOGS_DB_FILE" && fn_msg "[INFO] Clear cache local for changelogs..."
 			;;	
 
 		-h|--help)
@@ -2055,14 +2261,19 @@ function fn_main()
 			;;	
 
 		*)
-			fn_msg "[ERROR] option $OPT not found!"
+			fn_msg "[ERROR] option \"$OPT\" not found!"
 			fn_usage
 			;;
 	esac
 }
 
 # inicio do script
+fn_require_reboot
+
 fn_requiriments
+fn_isDebian
 fn_main "$@"
+
+fn_require_reboot
 
 
