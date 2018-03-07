@@ -87,10 +87,11 @@ function fn_get_config()
 		fi
 	done
 
+	# Definidos fixos
+
 	export CHANGELOGS="changelogs"
+	export CVE_DB_FILE_OTHERS="${TMP_DIR}/apt-sec.others.clogdb"
 }
-
-
 
 function fn_version()
 {
@@ -178,16 +179,19 @@ function fn_isDebian()
 	case "$VAL" in
 	DEBIAN)
 		fn_msg "[INFO] apt-sec for $OS_RELEASE"
+		export DISTRO="$VAL"
 		return 0
 		;;
 	UBUNTU)
 		fn_msg "[WARNING] Some functions are not available for: $OS_RELEASE"	
+		export DISTRO="$VAL"	
 		return 1
 		;;
 	*)
 		fn_msg "[WARNING] Script valid for DEBAIN/UBUNTU: $OS_RELEASE"	
 		exit 2	
 	esac
+	
 }
 
 function fn_isRoot()
@@ -272,17 +276,18 @@ function fn_usage()
 	echo
 
 }
-function fn_release_changelogs_db()
+function fn_clear_changelogs_db()
 {
 	# Função para limpar cache apos operações com pacotes baseados na urgencia
 	rm -f "$CHANGE_LOGS_DB_FILE" && fn_msg "[INFO] Renew cache local for changelogs..."
+	rm -rf "${TMP_DIR}/${CHANGELOGS}"
 }
 
-function fn_release_cache()
+function fn_clear_cache()
 {
 	# função que libera a base temporária de pacotes atualizaveis	
 	fn_download_cve_db
-	fn_release_changelogs_db
+	fn_clear_changelogs_db
 	rm -f "$PKG_DB_FILE" && fn_msg "[INFO] Clear cache local for packages..."
 	
 }
@@ -344,6 +349,7 @@ function fn_get_timestamp_end()
 function fn_verify_expired()
 {
 	# Função acessório que verifica se o tempo de espera para coleta de dados foi excedido
+	
 	OPTION="$1"
 	ATUAL=$(date +%s)
 
@@ -372,6 +378,7 @@ function fn_verify_expired()
 		fi
 	else
 		# inicializando o arquivo de controle caso ele não exista
+		mkdir -p "$TMP_DIR"
 		echo "cve=$ATUAL" > "$FILE_CONTROL"
 		echo "update=$ATUAL" >> "$FILE_CONTROL"
 		echo "changelog=$ATUAL" >> "$FILE_CONTROL"
@@ -652,40 +659,44 @@ function fn_get_changelog_data()
 
 	fn_aptget_update
 	
-	fn_msg "[INFO] Get changelogs for packages upgradable"
-
 	RELACAO=""
-	#for PKG in $(apt-get upgrade -V --assume-no | grep "^ " | awk '{print $1}'); do
-	for PKG in $(fn_get_all_package_upgradable | awk -F "|" '{print $1}'); do
-		VAL="$PKG : "
-		if [ -e "$CHANGE_LOGS_DB_FILE" ];then
+
+	if [ -e "$CHANGE_LOGS_DB_FILE" ];then
 		# Se ja existe arquivo de cache local
-		
+			fn_msg "[INFO] Get changelogs for packages upgradable"
 			fn_verify_expired "changelog"
 			RESP="$?"
+	fi
 
-		fi
-		export PAGER=cat
-		RESULTADO=$(aptitude changelog "$PKG" 2>/dev/null)
-		#echo "$RESULTADO"| head -n10
-		RESP="$?"
-		
-		if [ ! -d "${TMP_DIR}/${CHANGELOGS}" ];then
-			mkdir -p "${TMP_DIR}/${CHANGELOGS}"	
-		fi
+	# Só avança com a coleta de changelogs se o tempo foe estourado
+	if [ "$RESP" -eq 0 ];then
+		for PKG in $(fn_get_all_package_upgradable | awk -F "|" '{print $1}'); do
+			VAL="$PKG : "
+				
+			export PAGER=cat
+			RESULTADO=$(aptitude changelog "$PKG" 2>/dev/null)
+			#echo "$RESULTADO"| head -n10
+			RESP="$?"
+			
+			if [ ! -d "${TMP_DIR}/${CHANGELOGS}" ];then
+				mkdir -p "${TMP_DIR}/${CHANGELOGS}"	
+			fi
 
-		if [ -z "$RESULTADO" ];then
-			echo "${VAL}Not found changelog for package $PKG; urgency=unknown" > "${TMP_DIR}/${CHANGELOGS}/${PKG}.chlog"
-		else
-			echo "$RESULTADO" > "${TMP_DIR}/${CHANGELOGS}/${PKG}.chlog"
-		fi
-	done
+			if [ -z "$RESULTADO" ];then
+				echo "${VAL}Not found changelog for package $PKG; urgency=unknown" > "${TMP_DIR}/${CHANGELOGS}/${PKG}.chlog"
+			else
+				echo "$RESULTADO" > "${TMP_DIR}/${CHANGELOGS}/${PKG}.chlog"
+			fi
+		done
+	fi	
 	#fn_extract_cve_from_changelog	
 		
 }
 
 function fn_extract_cve_from_changelog()
 {
+	# função para extração de dados de CVE e urgencia diretamente dos pacotes (utilizado para Ubuntu)
+	
 	VAL=""
 	RELACAO=""
 
@@ -723,11 +734,10 @@ function fn_extract_cve_from_changelog()
 
 	done
 	
-	# Atualizando 
-	echo -e "$RELACAO" | sort -t ";" -k 2 | uniq | grep -v ^$ > "${CHANGE_LOGS_DB_FILE}.v2" && fn_update_time "changelog"
-	#echo -e "$RELACAO"  | sort -t ";" -k 2 | uniq | grep -v ^$ | awk -F ";" '{print $1";"$4}' > "${CHANGE_LOGS_DB_FILE}.v2" && fn_update_time "changelog"
+	# Atualizando (identificando repetições)
+	echo -e "$RELACAO" | sort -t ";" -k 2 | uniq -w 50 | grep -v ^$ > "${CVE_DB_FILE_OTHERS}" && fn_update_time "changelog"
+	#echo -e "$RELACAO"  | sort -t ";" -k 2 | uniq | grep -v ^$ | awk -F ";" '{print $1";"$4}' > "${CVE_DB_FILE_OTHERS}" && fn_update_time "changelog"
 }
-
 
 function fn_list_urgency_upgradable()
 {
@@ -771,6 +781,7 @@ function fn_list_urgency_upgradable()
 function fn_download_cve_db()
 {
 	# Função que coleta a base de CVEs atualizada e guarda localmente, obedecendo o tempo de expiração.
+	
 	RELEASE="$1"
 	fn_msg "[INFO] Collect CVE database, wait..."
 
@@ -784,7 +795,8 @@ function fn_download_cve_db()
 
 function fn_get_packages_dsa()
 {
-	# DESATIVADA
+	# Função DESATIVADA
+
 	DSA="$1"
 	VALOR=$(curl --silent https://security-tracker.debian.org/tracker/"$DSA" 2>&1 |sed -e 's/<[tr]*>/\n/g'|sed -e 's/<[^>]*>/ /g'|  grep "$CODENOME" | grep -v "(unfixed)"| tail -n1)
 	if [ -z "$VALOR" ];then
@@ -1066,18 +1078,18 @@ function fn_list_package_upgradable_cve_ubuntu()
 
 	COL_A=$(( $(fn_get_terminal_size) / 6 ))
 	COL_B=$((2*$COL_A))
-	#COL_B=$9((3*COL_A))-$(fn_get_terminal_size))
 
-#	fn_verify_expired "cve"
-#	RESP="$?"
 
-#	if [ "$RESP" -eq 0  ]; then
+	fn_verify_expired "cve"
+	RESP="$?"
+
+	if [ "$RESP" -eq 0  ]; then
 		# tempo maior que expirado
-#		fn_msg "[INFO] CVE database expired"
+		fn_msg "[INFO] CVE database expired"
 
-		# obtendo dados do UDD
-#		fn_download_cve_db "$CODENOME" && fn_update_time "cve"
-#	fi
+		# obtendo dados dos changelogs dos pacotes
+		fn_get_changelog_data && fn_update_time "cve"
+	fi
 
 #	if [ ! -e "$CVE_DB_FILE" ]; then
 #		fn_msg "[INFO] CVE database not found"
@@ -1086,16 +1098,14 @@ function fn_list_package_upgradable_cve_ubuntu()
 #		fn_download_cve_db "$CODENOME" && fn_update_time "cve"
 #	fi
 	
-#	fn_aptget_update
-
-	
+	fn_aptget_update
 	
 #	LIST=$(fn_get_all_package_upgradable)
 	IFS_OLD="$IFS"
 	IFS=$'\n'
 
-	#LIST="$(cat /tmp/apt-sec.clogdb.v2|awk -F ";" '{print $1}')"
-	LIST="$(cat /tmp/apt-sec.clogdb.v2)"
+	#LIST="$(cat "${CVE_DB_FILE_OTHERS}"|awk -F ";" '{print $1}')"
+	LIST="$(cat ${CVE_DB_FILE_OTHERS})"
 
 #	echo "$LIST"
 
@@ -1353,7 +1363,7 @@ function fn_upgrade_from_list ()
 
 	
 	# liberando o cache e forçando o sistema a atualizar os dados de consultas
-	fn_release_cache	
+	fn_clear_cache	
 }
 
 function fn_upgrade_all ()
@@ -1517,8 +1527,9 @@ function fn_upgrade_all ()
 	fi
 }
 
-function fn_update_packages_cve ()
+function fn_update_packages_cve()
 {
+	
 	fn_titulo "UPGRADE PACKAGES WITH CVE"
 
 	fn_verify_expired "cve"
@@ -2216,14 +2227,11 @@ function fn_main()
 		
 		-c|--cve-list)
 			# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
-			fn_isDebian
-			RESP="$?"
-			#echo "RESP: $RESP"
-			case "$RESP" in
-				0) 
+			case "$DISTRO" in
+				DEBIAN) 
 					fn_list_package_upgradable_cve_formated detail
 					;;
-				1)
+				UBUNTU)
 					fn_get_changelog_data
 					fn_extract_cve_from_changelog
 					fn_list_package_upgradable_cve_ubuntu
@@ -2278,7 +2286,7 @@ function fn_main()
 		#	fn_menu_rollback
 		#	;;
 		--renew-cache)
-			fn_release_cache
+			fn_clear_cache
 			#rm -f "$CHANGE_LOGS_DB_FILE" && fn_msg "[INFO] Clear cache local for changelogs..."
 			;;	
 
