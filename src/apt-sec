@@ -770,7 +770,7 @@ function fn_list_urgency_upgradable()
 		COUNT=0
 		#for PKG in $(cat "$CHANGE_LOGS_DB_FILE");do
 		# podemos fitrar a urgencia
-		for PKG in $(fn_get_urgency_upgradable_data | grep "$URG");do
+		for PKG in $(fn_get_urgency_upgradable_data | egrep "$URG");do
 			COUNT=$(($COUNT+1))
 			P=$(echo $PKG | awk -F";" '{print $1}')
 			URGENCY=$(echo $PKG | awk -F";" '{print $2}'| cut -d "=" -f2)
