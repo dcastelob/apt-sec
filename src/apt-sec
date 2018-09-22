@@ -6,7 +6,7 @@
 # Author: Diego Castelo Branco
 # E-mail: dcastelob@gmail.com
 # Create: 25/08/2017
-# Update: 14/02/2018
+# Update: 15/09/2018
 # Version: 1.01
 #
 #################################################################################################################
@@ -16,9 +16,10 @@
 # VARIAVEIS DE CONTROLE
 ###############################################################################
 #export LANG=en_US.UTF-8
-export APT_SEC_CONF_FILE='apt-sec.conf'
+export APT_SEC_CONF_FILE='/etc/apt-sec/apt-sec.conf'
 export PS3="[Choice]: "
 export APT_SEC_VERSION="1.01"
+export APT_SEC_RELEASE_DATE="2018-09-15"
 
 #export VERBOSE=no
 
@@ -50,13 +51,14 @@ export APT_SEC_VERSION="1.01"
 
 function fn_get_data_conf()
 {
+	# funcao para selecao de campos do arquivo de configuracao do apt-sec
 	FIELD="$1"
 	cat "${APT_SEC_CONF_FILE}" | grep "${FIELD}" | awk -F "=" '{print $2}'| tr -d "	"
 }
 
 function fn_get_config()
 {
-	# Funcção para carregamento dos parametros do arquivo apt-sec.conf
+	# Funcao para carregamento dos parametros do arquivo apt-sec.conf
 
 	export VERBOSE="$(fn_get_data_conf 'verbose')"
 	export TMP_DIR="$(fn_get_data_conf 'tmp_dir')" 
@@ -95,15 +97,17 @@ function fn_get_config()
 
 function fn_version()
 {
+	# funcao para exibicao de detalhes sobre a versao do apt-sec
 	echo
 	echo " Author : Diego Castelo Branco"
 	echo " Contact: dcastelob at gmail.com"
-	echo " System : apt-sec - version: $APT_SEC_VERSION - 2018-02-28"
+	echo " System : apt-sec - version: $APT_SEC_VERSION - $APT_SEC_RELEASE_DATE"
 	echo
 }
 
 function fn_require_reboot()
 {
+	# Funcao que identifica a necessidade de Reboot apos instalacoes de pacotes
 	if [ -f /var/run/reboot-required ]; then
   		fn_msg "[WARNING] System reboot required"
 	fi
@@ -111,7 +115,7 @@ function fn_require_reboot()
 
 function fn_requiriments()
 {
-
+	# funcao que realiza a checagem de requesitos para execução do apt-sec
 	COUNT=0
 	PKG=""
 	which psql &> /dev/null
@@ -173,6 +177,7 @@ function fn_verifyRepeat()
 
 function fn_isDebian()
 {
+	# funcao que identifica se a distribuicao eh Debian ou Ubuntu
 	OS_RELEASE=$(cat /etc/*release* | grep "PRETTY_NAME" | cut -d "=" -f2)
 
 	VAL=$(echo "$OS_RELEASE" | grep -uoEi "DEBIAN|UBUNTU" | tr "a-z" "A-Z" | uniq)
@@ -256,16 +261,18 @@ function fn_get_terminal_size()
 
 function fn_usage()
 {
-	echo "Usage: $0 <option>"
+	# funcao para apresentar opcoes do sistema quando o menu do help for necessario.
+
+	echo "Usage: $0 <option> [filter]"
 	echo "Options:"
 	echo " -h|--help        	  - Help commands"
-	echo " -l|--list        	  - List all packages upgradable"
-	echo " -s|--summary-list   	  - List summary for packages upgradable urgency based"
-	echo " -u|--urgency-list   	  - List all packages upgradable with urgency"
-	echo " -c|--cve-list    	  - List only packages with CVE associated"
-	echo " -a|--all-update     	  - Secure update for all packages upgradable"
-	echo " -C|--cve-update  	  - Secure update only packages with CVE associated detailed"
-	echo " -U|--urgency-update	  - Secure update only packages urgency filter"
+	echo " -s|--list-summary   	  - List summary for packages upgradable urgency based"
+	echo " -u|--list-urgency   	  - List all packages upgradable with urgency"
+	echo " -c|--list-cve    	  - List only packages with CVE associated"
+	echo " -l|--list        	  - List all packages upgradable"	
+	echo " -U|--update-urgency	  - Secure update for all packages urgency filtered"
+	echo " -C|--update-cve  	  - Secure update for all packages with CVE associated [detail]"
+	echo " -A|--update-all     	  - Secure update for all packages upgradable"
 	echo " -r|--report   	 	  - Show apt-sec report off updates packages"
 	echo " -H|--history [option]	  - Show apt history from apt log file"
 	echo " -p|--pkg-history [pkg]	  - Show apt history from selected packages "
@@ -276,10 +283,11 @@ function fn_usage()
 	echo
 
 }
+
 function fn_clear_changelogs_db()
 {
 	# Função para limpar cache apos operações com pacotes baseados na urgencia
-	rm -f "$CHANGE_LOGS_DB_FILE" && fn_msg "[INFO] Renew cache local for changelogs..."
+	rm -f "$CHANGE_LOGS_DB_FILE" && fn_msg "[INFO] Renew local cache for changelogs..."
 	rm -rf "${TMP_DIR}/${CHANGELOGS}"
 }
 
@@ -288,13 +296,13 @@ function fn_clear_cache()
 	# função que libera a base temporária de pacotes atualizaveis	
 	fn_download_cve_db
 	fn_clear_changelogs_db
-	rm -f "$PKG_DB_FILE" && fn_msg "[INFO] Clear cache local for packages..."
+	rm -f "$PKG_DB_FILE" && fn_msg "[INFO] Clear local cache for packages..."
 	
 }
 
 function fn_generate_apt_log()
 {
-	# Função acessório que gera o log das operações realizadas
+	# Função acessória que gera o log das operações realizadas
 
 	DATE="$1"
 	#DATE_EVENT=$(date "+%x %T")
@@ -340,6 +348,7 @@ function fn_get_timestamp_begin()
 
 function fn_get_timestamp_end()
 {
+	# funcao para registrar o timestamp do final da operacao
 	TIMESTAMP_END=$(date +%s)
 	if [ -n "$TIMESTAMP_BEGIN" ];then
 		echo " Elapsed time: $(( $TIMESTAMP_END -$TIMESTAMP_BEGIN  )) seconds"
@@ -348,7 +357,7 @@ function fn_get_timestamp_end()
 
 function fn_verify_expired()
 {
-	# Função acessório que verifica se o tempo de espera para coleta de dados foi excedido
+	# Função acessória que verifica se o tempo de espera para coleta de dados foi excedido
 	
 	OPTION="$1"
 	ATUAL=$(date +%s)
@@ -388,7 +397,7 @@ function fn_verify_expired()
 
 function fn_update_time()
 {
-	# Função de autualiza o timestemp no arquivo de controle de expiração para a opção deseja
+	# Função que autualiza o timestamp no arquivo de controle de expiração para a opção desejada
 	OPTION="$1"
 	NEW_TIME=$(date +%s)
 
@@ -408,6 +417,7 @@ function fn_update_time()
 
 function fn_aptget_update()
 {
+	# funcao que faz a consulta de respositórios ativos para saber a existencia de novos pacotes atualizaveis
 	fn_verify_expired "update"
 	RESP="$?"
 
@@ -597,6 +607,7 @@ function fn_get_all_package_upgradable()
 	echo "$PKG_COLLECTION" | sort -t"|" -k1 | uniq | tee "$PKG_DB_FILE"
 }
 
+
 function fn_get_urgency_upgradable_data()
 {
 	# Função que coleta dos dados de urgencia a partir dos changelogs dos pacotes e salva a relação em um arquivo temporário
@@ -739,9 +750,11 @@ function fn_extract_cve_from_changelog()
 	#echo -e "$RELACAO"  | sort -t ";" -k 2 | uniq | grep -v ^$ | awk -F ";" '{print $1";"$4}' > "${CVE_DB_FILE_OTHERS}" && fn_update_time "changelog"
 }
 
+
 function fn_list_urgency_upgradable()
 {
 	# Função que apresenta os pacotes a serem atualizados com as informações de urgência
+	URG="$1"
 
 	fn_get_timestamp_begin
 
@@ -756,7 +769,8 @@ function fn_list_urgency_upgradable()
 		IFS=$'\n'
 		COUNT=0
 		#for PKG in $(cat "$CHANGE_LOGS_DB_FILE");do
-		for PKG in $(fn_get_urgency_upgradable_data);do
+		# podemos fitrar a urgencia
+		for PKG in $(fn_get_urgency_upgradable_data | grep "$URG");do
 			COUNT=$(($COUNT+1))
 			P=$(echo $PKG | awk -F";" '{print $1}')
 			URGENCY=$(echo $PKG | awk -F";" '{print $2}'| cut -d "=" -f2)
@@ -823,7 +837,8 @@ function fn_list_package_for_upgradable_by_urgency()
 	fn_msg "[INFO] List all packages and depenedencies for Urgency = $OPT. It may take a few minutes."
 
 	# Obtendo informações do terminal para dimensionamento das colunas da tabela de resulatados
-	COL_FROM=$(( $(fn_get_terminal_size) / 4 ))
+	#COL_FROM=$(( $(fn_get_terminal_size) / 4 ))
+	COL_FROM=$(( $(fn_get_terminal_size) / 5 ))
 	COL_TO=${COL_FROM}
 	#echo "COL_FROM: $COL_FROM e COL_TO: $COL_TO"   #DEBUG
 
@@ -1270,7 +1285,7 @@ function fn_list_package_history()
 	fn_line
 	NEW_LIST=$(echo -e "$NEW_LIST")
 
-	echo " $COUNT - Packages to update"
+	echo " $COUNT - Packages"
 	fn_get_timestamp_end
 
 	fn_line
@@ -1751,7 +1766,7 @@ function fn_menu_select_upgrade_by_urgency()
 				OPT=$(echo "$OPT" | cut -d "|" -f1 | sed "s/ //g")
 				#PKG_COLLECTION=$(cat "$CHANGE_LOGS_DB_FILE" | grep "$OPT"| cut -d" " -f1 | tr "\n" "|" | sed "s/|$//g" )
 				PKG_COLLECTION=$(cat "$CHANGE_LOGS_DB_FILE" | grep "$OPT"| cut -d" " -f1 )
-				echo "Colecao: $PKG_COLLECTION"
+				#echo "Colecao: $PKG_COLLECTION"  DEBUG
 				fn_list_package_for_upgradable_by_urgency "$PKG_COLLECTION" "$OPT"
 				exit 0
 				#fn_get_package_upgradable_from_list "$PKG_COLLECTION"
@@ -1998,7 +2013,7 @@ function fn_get_apt_history_package()
 
 		done
 	done
-	echo -e "$T"  ## DEBUG
+	#echo -e "$T"  ## DEBUG
 	fn_list_package_history "${OPTION}" "${T}"
 }
 
@@ -2214,7 +2229,8 @@ function fn_menu_rollback()
 function fn_main()
 {
 
-	OPT="$1"
+	OPT1="$1"
+	OPT2="$2"
 
 	# Verifca se é root
 	fn_isRoot "$@"
@@ -2223,13 +2239,14 @@ function fn_main()
 	fn_get_config
 
 
-	case "$OPT" in
+	case "$OPT1" in
 		
-		-c|--cve-list)
+		-c|--list-cve)
 			# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
 			case "$DISTRO" in
 				DEBIAN) 
-					fn_list_package_upgradable_cve_formated detail
+					#fn_list_package_upgradable_cve_formated detail
+					fn_list_package_upgradable_cve_formated "$OPT2"
 					;;
 				UBUNTU)
 					fn_get_changelog_data
@@ -2239,10 +2256,10 @@ function fn_main()
 
 			esac
 			;;
-		-u|--urgency-list)
-			fn_list_urgency_upgradable
+		-u|--list-urgency)
+			fn_list_urgency_upgradable "$OPT2"
 			;;
-		-s|--summary-list)
+		-s|--list-summary)
 			fn_list_urgency_upgradable_summary
 			;;		
 
@@ -2258,17 +2275,17 @@ function fn_main()
 			fn_list_package_upgradable_cve_ubuntu
 			;;
 
-		-a|--all-update)
+		-A|--update-all )
 			fn_list_package_upgradable_formated "UPDATE"
 			#fn_upgrade_all
 			;;
 
-		-C|--cve-update)
+		-C|--update-cve)
 			# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
 			fn_update_packages_cve
 			;;
 
-		-U|--urgency-update)
+		-U|--update-urgency)
 			fn_menu_select_upgrade_by_urgency
 			;;
 		-r|--report)	
