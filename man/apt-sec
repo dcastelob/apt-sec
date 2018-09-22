@@ -4,7 +4,7 @@
 .SH NAME
 apt-sec \- Management advanced updates for Debian packages.
 .SH SYNOPSIS
-apt-sec [-h|--help]|[ -l|--list]|[-s|--summary-list]|[-u|--urgency-list][-c|--cve-list]|[-a|--all-update]|[-C|--cve-update]|[-U|--urgency-update]|[-r|--report]|[-H|--history [option]]|[-p|--pkg-history [pkg]]|[-v|--version]|[--renew-cache]
+apt-sec [-h|--help]|[-l|--list]|[-s|--list-summary]|[-u|--list-urgency [filters]][-c|--list-cve]|[-A|--update-all [filters]]|[-C|--update-cve [filters]]|[-U|--update-urgency [filters]]|[-r|--report]|[-H|--history [option]]|[-p|--pkg-history [pkg]]|[-v|--version]|[--renew-cache]
 
 .SH DESCRIPTION
 The apt-sec tool has been developed to automate some patch management activities. Originally written in bash script, it uses the apt, apt-get, and aptitude suites tools themselves to build a mechanism that enables the traceability of updates and identify issues in a more manageable and efficient way for administrators.
@@ -17,37 +17,39 @@ The apt-sec provides text-mode support for some of the features found in yum his
 Help command.
 .RE
 
-.B -l|--list
+.B -l|--list [filters]
 .RS 4
 List all packages upgradable.
+Filters can be applied by using regex. Ex.: apt-sec -l "pkg1|pkg2".
 .RE
 
-.B -s|--summary-list
+.B -s|--list-summary [filters]
 .RS 4
 List summary for packages upgradable urgency based.
+For filters See "apt-sec -l" 
 .RE
 
-.B -u|--urgency-list	
+.B -u|--list-urgency [filters]	
 .RS 4
 List all packages upgradable with urgency. Urgence changelog based.
 .RE
 
-.B -c|--cve-list
+.B -c|--list-cve [filters]
 .RS 4
 List only packages with CVE associated. Collect data from UDD.
 .RE
 
-.B -a|--all-update	
+.B -A|--update-all [filters]	
 .RS 4
 Secure update for all packages upgradable.
 .RE
 
-.B -C|--cve-update	
+.B -C|--update-cve [filters]	
 .RS 4
 Secure update only packages with CVE associated. See "apt-sec -c".
 .RE
 
-.B -U|--urgency-update	
+.B -U|--update-urgency	
 .RS 4
 Secure update only packages urgency filter. See "apt-sec -u". 
 .RE
@@ -62,16 +64,16 @@ Show apt-sec report for updates packages.
 .RS 4
 Show apt history from apt log file.
 .RS 4 
-.B apt-sec -H|--history <filter> [date] [time]
+.B apt-sec -H|--history [operation] [date] [time]
 .PP
-\fB Filters:\fR date-only|install|remove|purge|upgrade
+\fBOperation:\fR date-only|install|remove|purge|upgrade
 .RS 2
 \fBdate-only\fR - select only operation date.
 \fBinstall|remove|purge|upgrade\fR - Select operations types (one at a time).
 .RE
 .PP
-\fB Date format:\fR "YYYY-MM-DD"  
-\fB Time format:\fR "hh:mm:ss"
+\fBDate format:\fR "YYYY-MM-DD"  
+\fBTime format:\fR "hh:mm:ss"
 .RE
 .RE
 
