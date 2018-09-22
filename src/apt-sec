@@ -888,7 +888,8 @@ function fn_list_package_upgradable_formated()
 {
 
 	# Função que gera uma lista formatada de pacotes atualizáveis e permite atualizar os pacotes listados
-	ACTION="$1"
+	PKG_FILTER="$1"
+	ACTION="$2"
 	ACTION=$(echo $ACTION | tr [a-z] [A-Z])
 
 	fn_get_timestamp_begin
@@ -901,7 +902,7 @@ function fn_list_package_upgradable_formated()
 
 	fn_aptget_update
 
-	LIST=$(fn_get_all_package_upgradable)
+	LIST=$(fn_get_all_package_upgradable | egrep "$PKG_FILTER")
 
 	if [ -z  "$LIST" ]; then
 		fn_msg "[ERROR] No exist data for selection."
@@ -1004,6 +1005,7 @@ function fn_list_package_upgradable_cve_formated()
 	fn_get_timestamp_begin
 
 	FORMAT="$1"
+	CVE_FILTER="$2"
 
 	fn_verify_expired "cve"
 	RESP="$?"
@@ -1025,10 +1027,8 @@ function fn_list_package_upgradable_cve_formated()
 	
 	fn_aptget_update
 
-	
-	
 	LIST=$(fn_get_all_package_upgradable)
-
+	
 	if [ -z "$LIST" ];then
 		fn_msg "[ERROR] Packges from CVE file not found"
 		exit 0
@@ -1045,7 +1045,7 @@ function fn_list_package_upgradable_cve_formated()
 
 		PKG=$(echo "$I" | awk -F "|" '{print $1}')
 
-		RESULTADO=$(fn_locate_package_in_cve "$PKG")
+		RESULTADO=$(fn_locate_package_in_cve "$PKG" | egrep "$CVE_FILTER")
 		RESP="$?"
 		if [ "$RESP" -eq 0 ]; then
 			COUNT=$(($COUNT+1))
@@ -1544,7 +1544,9 @@ function fn_upgrade_all ()
 
 function fn_update_packages_cve()
 {
-	
+	# funcao que realizar a atualizacao de pacotes que possuem CVE
+	CVE_FILTER="$1"
+
 	fn_titulo "UPGRADE PACKAGES WITH CVE"
 
 	fn_verify_expired "cve"
@@ -1567,7 +1569,8 @@ function fn_update_packages_cve()
 
 
 	#fn_list_package_upgradable_formated
-	fn_list_package_upgradable_cve_formated
+	# Agora pode filtar códigos específicos de CVE
+	fn_list_package_upgradable_cve_formated "formato" "$CVE_FILTER"
 	RESP="$?"
 	if [ "$RESP" -eq 0 ];then
 		echo
@@ -2264,7 +2267,7 @@ function fn_main()
 			;;		
 
 		-l|--list)
-			fn_list_package_upgradable_formated
+			fn_list_package_upgradable_formated "$OPT2"
 			;;
 
 		-t)
@@ -2276,13 +2279,14 @@ function fn_main()
 			;;
 
 		-A|--update-all )
-			fn_list_package_upgradable_formated "UPDATE"
+			fn_list_package_upgradable_formated "$OPT2" "UPDATE"
 			#fn_upgrade_all
 			;;
 
 		-C|--update-cve)
 			# Verificando a necessidade de invocar a coleta de dados de CVEs do Debian
-			fn_update_packages_cve
+			# Permite instalar todas as atualizações ou apenas a que for filtrada $OPT2
+			fn_update_packages_cve "$OPT2"
 			;;
 
 		-U|--update-urgency)
