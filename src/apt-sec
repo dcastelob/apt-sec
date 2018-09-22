@@ -1610,7 +1610,8 @@ function fn_update_packages_cve()
 		VER_OLD=$(echo "$ITEM" | awk -F "|" '{print $2}')
 		VER_NEW=$(echo "$ITEM" | awk -F "|" '{print $3}')
 
-		fn_locate_package_in_cve "$PKG" &> /dev/null
+		#fn_locate_package_in_cve "$PKG"  &> /dev/null
+		fn_locate_package_in_cve "$PKG" | egrep "$CVE_FILTER"  &> /dev/null
 		RESP="$?"
 		if [ "$RESP" -eq 0 ]; then
 			fn_download_package_version "$PKG" "$VER_OLD"
@@ -1682,7 +1683,8 @@ function fn_update_packages_cve()
 				done
 
 				# Solicitando novo cache do 
-				fn_release_cache
+				#fn_release_cache
+				fn_download_cve_db
 				;;
 
 			N)
